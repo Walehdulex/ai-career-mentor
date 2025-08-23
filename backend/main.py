@@ -21,6 +21,8 @@ app.add_middleware(
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+
+
 class ChatMessage(BaseModel):
     message: str
 
