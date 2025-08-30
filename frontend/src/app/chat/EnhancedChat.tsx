@@ -1,98 +1,97 @@
 'use client'
 
-import { useEffect, useState } from "react"    
-import axios from "axios"
+import { useState, useEffect } from 'react'
+import axios from 'axios'
 
 interface Message {
-    role: 'user' | 'ai'
-    content: string
-    timestamp?: string
+  role: 'user' | 'ai'
+  content: string
+  timestamp?: string
 }
 
 interface ChatSession {
-    session_id: string
-    title: string
-    created_at: string
-    updated_at: string
+  session_id: string
+  title: string
+  created_at: string
+  updated_at: string
 }
 
 export default function EnhancedChatPage() {
-    const [messages, setMessages] = useState<Message[]>([])
-    const [input, setInput] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
-    const [sessions, setSessions] = useState<ChatSession[]>([])
-    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
-    const [showSidebar, setShowSidebar] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [sessions, setSessions] = useState<ChatSession[]>([])
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [showSidebar, setShowSidebar] = useState(false)
 
+  // Load chat sessions on component mount
+  useEffect(() => {
+    loadChatSessions()
+  }, [])
 
-    //Loading chat sessions on component mount
-    useEffect(() => {
-        loadChatSessions()
-    }, [])
-
-    const loadChatSessions = async () => {
-        try {
-        const response = await axios.get('http://localhost:8000/api/chat/sessions')
-        setSessions(response.data)
-        } catch (error) {
-        console.error('Error loading sessions:', error)
-        }
+  const loadChatSessions = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/api/chat/sessions')
+      setSessions(response.data)
+    } catch (error) {
+      console.error('Error loading sessions:', error)
     }
+  }
 
-    const loadChatHistory = async (sessionId: string) => {
-        try {
-        const response = await axios.get(`http://localhost:8000/api/chat/sessions/${sessionId}`)
-        setMessages(response.data.map((msg: any) => ({
-            role: msg.role,
-            content: msg.content,
-            timestamp: msg.timestamp
-        })))
-        setCurrentSessionId(sessionId)
-        } catch (error) {
-        console.error('Error loading chat history:', error)
-        }
+  const loadChatHistory = async (sessionId: string) => {
+    try {
+      const response = await axios.get(`http://localhost:8000/api/chat/sessions/${sessionId}`)
+      setMessages(response.data.map((msg: any) => ({
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp
+      })))
+      setCurrentSessionId(sessionId)
+    } catch (error) {
+      console.error('Error loading chat history:', error)
     }
+  }
 
-    const startNewChat = () => {
-        setMessages([])
-        setCurrentSessionId(null)
-        setShowSidebar(false)
+  const startNewChat = () => {
+    setMessages([])
+    setCurrentSessionId(null)
+    setShowSidebar(false)
+  }
+
+  const deleteSession = async (sessionId: string, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent session selection when clicking delete
+    
+    try {
+      await axios.delete(`http://localhost:8000/api/chat/sessions/${sessionId}`)
+      setSessions(sessions.filter(s => s.session_id !== sessionId))
+      
+      // If we deleted the current session, start fresh
+      if (currentSessionId === sessionId) {
+        startNewChat()
+      }
+    } catch (error) {
+      console.error('Error deleting session:', error)
     }
+  }
 
-    const deleteSession = async (sessionId: string, event:React.MouseEvent) => {
-        event.stopPropagation() //Preventing session selection when clicking delete
+  const sendMessage = async () => {
+    if (!input.trim()) return
 
-        try {
-            await axios.delete(`http://localhost:8000/api/chat/sessions/${sessionId}`)
-            setSessions(sessions.filter(s => s.session_id !== sessionId))
+    const userMessage = input.trim()
+    setInput('')
+    setIsLoading(true)
 
-            // If we deleted the current session, start fresh
-            if (currentSessionId === sessionId) {
-                startNewChat()
-            }
-        } catch (error) {
-            console.error('Error deleting session:', error)
-        }
-    }
+    // Add user message to chat immediately
+    const newUserMessage: Message = { role: 'user', content: userMessage }
+    setMessages(prev => [...prev, newUserMessage])
 
-    const sendMessage = async () => {
-        if (!input.trim()) return
+    try {
+      const response = await axios.post('http://localhost:8000/api/chat', {
+        message: userMessage,
+        session_id: currentSessionId
+      })
 
-        const userMessage = input.trim()
-        setInput('')
-        setIsLoading(true)
-
-        //Adding user message to chat immediately
-        const newUserMessage: Message = { role: 'user', content: userMessage }
-        setMessages(prev => [...prev, newUserMessage])
-
-        try {
-        const response = await axios.post('http://localhost:8000/api/chat', {
-            message: userMessage,
-            session_id: currentSessionId
-        })
-
-        // Adding  AI response to chat
+      // Add AI response to chat
       const aiMessage: Message = { 
         role: 'ai', 
         content: response.data.response 
@@ -124,17 +123,76 @@ export default function EnhancedChatPage() {
     }
   }
 
+  const formatAIMessage = (content: string) => {
+    // Split content by common markdown patterns
+    const lines = content.split('\n')
+    const formattedContent = []
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim()
+      
+      if (!line) {
+        formattedContent.push(<br key={i} />)
+        continue
+      }
+      
+      // Headers (### or ##)
+      if (line.startsWith('###') || line.startsWith('##')) {
+        const headerText = line.replace(/^#+\s*/, '')
+        formattedContent.push(
+          <h3 key={i} className="font-semibold text-gray-800 mt-3 mb-1 text-sm">
+            {headerText}
+          </h3>
+        )
+      }
+      // Bold text (**text**)
+      else if (line.includes('**')) {
+        const parts = line.split('**')
+        const formattedLine = parts.map((part, index) => 
+          index % 2 === 1 ? 
+            <strong key={index} className="font-semibold text-gray-800">{part}</strong> : 
+            part
+        )
+        formattedContent.push(
+          <p key={i} className="text-sm text-gray-700 leading-relaxed mb-1">
+            {formattedLine}
+          </p>
+        )
+      }
+      // Bullet points (- or *)
+      else if (line.startsWith('- ') || line.startsWith('* ')) {
+        const bulletText = line.replace(/^[-*]\s*/, '')
+        formattedContent.push(
+          <div key={i} className="flex items-start mb-1">
+            <div className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-2 mr-2 flex-shrink-0"></div>
+            <p className="text-sm text-gray-700 leading-relaxed">{bulletText}</p>
+          </div>
+        )
+      }
+      // Regular paragraphs
+      else {
+        formattedContent.push(
+          <p key={i} className="text-sm text-gray-700 leading-relaxed mb-2">
+            {line}
+          </p>
+        )
+      }
+    }
+    
+    return <div className="space-y-1">{formattedContent}</div>
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-
+    
     if (diffInHours < 24) {
-        return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
-    } else if (diffInHours < 168) { //That is 7 days
-        return date.toLocaleTimeString([], { weekday: 'short' })
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } else if (diffInHours < 168) { // 7 days
+      return date.toLocaleDateString([], { weekday: 'short' })
     } else {
-        return date.toLocaleTimeString([], { month: 'short', day: 'numeric'})
+      return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
     }
   }
 
@@ -252,24 +310,40 @@ export default function EnhancedChatPage() {
                 key={index}
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.role === 'user'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-white text-gray-900 shadow-sm border'
-                  }`}
-                >
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                <div className="max-w-xs lg:max-w-2xl">
+                  {message.role === 'user' ? (
+                    <div className="bg-blue-500 text-white px-4 py-3 rounded-lg shadow-sm">
+                      <p className="text-sm leading-relaxed">{message.content}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+                      <div className="flex items-center mb-2">
+                        <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-2">
+                          <span className="text-white text-xs font-bold">AI</span>
+                        </div>
+                        <span className="text-xs text-gray-500 font-medium">Career Mentor</span>
+                      </div>
+                      {formatAIMessage(message.content)}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
 
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white text-gray-900 shadow-sm border px-4 py-2 rounded-lg">
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-                    <span className="text-sm">AI mentor is thinking...</span>
+                <div className="max-w-xs lg:max-w-2xl">
+                  <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+                    <div className="flex items-center mb-2">
+                      <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mr-2">
+                        <span className="text-white text-xs font-bold">AI</span>
+                      </div>
+                      <span className="text-xs text-gray-500 font-medium">Career Mentor</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                      <span className="text-sm text-gray-600">Thinking...</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -286,13 +360,13 @@ export default function EnhancedChatPage() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me about your tech career... (Press Enter to send)"
-                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-gray-900 placeholder-gray-500"
                 rows={2}
               />
               <button
                 onClick={sendMessage}
                 disabled={!input.trim() || isLoading}
-                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Send
               </button>
@@ -303,4 +377,3 @@ export default function EnhancedChatPage() {
     </div>
   )
 }
-
