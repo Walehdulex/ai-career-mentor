@@ -8,7 +8,7 @@ import json
 import uuid
 from pathlib import Path
 from dotenv import load_dotenv
-from resume_parser import ResumeParser
+from enhanced_resume_parser import EnhancedResumeParser
 from database import create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis
 from sqlalchemy.orm import Session
 
@@ -32,7 +32,7 @@ app.add_middleware(
 client = OpenAI(api_key= os.getenv("OPENAI_API_KEY"))
 
 # Initializing resume parser
-resume_parser = ResumeParser()
+resume_parser = EnhancedResumeParser()
 
 #Creating Uploads directory
 UPLOAD_DIR = Path("uploads")
@@ -224,22 +224,55 @@ async def analyze_resume(resume_data: dict):
                 skills_text += f"{category.title()}: {', '.join(skills)}\n"
         
         analysis_prompt = f"""
-        As a tech career expert, analyze this resume data and provide actionable feedback:
-        
-        Skills Found:
-        {skills_text}
-        
-        Estimated Experience: {resume_data.get('estimated_experience', 0)} years
-        Resume Length: {resume_data.get('word_count', 0)} words
+        As a tech career expert and ATS specialist, analyze this comprehensive resume data:
 
-        Provide feedback in these areas:
-        1. **Technical Skills Assessment**: What skills are missing for current tech market?
-        2. **ATS Optimization**: How to improve for Applicant Tracking Systems?
-        3. **Content Structure**: Resume length, formatting suggestions
-        4. **Career Level Feedback**: Advice based on experience level
-        5. **Action Items**: 3 specific things to improve immediately
-        
-        Keep feedback practical and actionable for tech professionals.
+        ## Resume Overview
+        - **Experience**: {resume_data.get('estimated_experience', 0)} years
+        - **Resume Length**: {resume_data.get('word_count', 0)} words
+        - **ATS Score**: {resume_data.get('resume_score', {}).get('score', 0)}/100
+
+        ## Contact Information
+        - Email: {resume_data.get('contact_info', {}).get('email', 'Missing')}
+        - LinkedIn: {resume_data.get('contact_info', {}).get('linkedin', 'Missing')}
+        - GitHub: {resume_data.get('contact_info', {}).get('github', 'Missing')}
+        - Portfolio: {resume_data.get('contact_info', {}).get('portfolio', 'Missing')}
+
+        ## Technical Skills Found
+        {chr(10).join([f"**{category.replace('_', ' ').title()}**: {', '.join(skills)}" 
+                    for category, skills in resume_data.get('skills', {}).items() if skills])}
+
+        ## Education
+        {chr(10).join([f"- {edu.get('degree', 'N/A')} at {edu.get('institution', 'N/A')} ({edu.get('year', 'N/A')})" 
+                    for edu in resume_data.get('education', [])])}
+
+        ## Work Experience
+        {chr(10).join([f"- {exp.get('title', 'N/A')} ({exp.get('dates', 'N/A')})" 
+                    for exp in resume_data.get('experience', [])])}
+
+        ## Certifications
+        {', '.join(resume_data.get('certifications', [])) or 'None found'}
+
+        Please provide a comprehensive analysis with:
+
+        ### 1. 🎯 Overall Assessment
+        Rate the resume's strength for tech roles and current market competitiveness.
+
+        ### 2. 📊 ATS Optimization
+        Specific improvements for Applicant Tracking Systems based on the {resume_data.get('resume_score', {}).get('score', 0)}/100 score.
+
+        ### 3. 🔧 Technical Skills Gap Analysis
+        What skills are missing for 2024/2025 tech market? Which skills need more prominence?
+
+        ### 4. 📝 Content & Structure Improvements
+        How to improve work experience descriptions, education section, and overall format.
+
+        ### 5. 🔗 Professional Presence
+        Recommendations for LinkedIn, GitHub, and portfolio optimization.
+
+        ### 6. 🚀 Top 3 Priority Actions
+        Most important changes to make immediately for better results.
+
+        Keep feedback specific, actionable, and tailored to current tech industry standards.
         """
 
         response = client.chat.completions.create(
