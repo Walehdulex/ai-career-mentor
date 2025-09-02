@@ -42,6 +42,13 @@ class ChatMessageSchema(BaseModel):
     message: str
     session_id: str | None = None
 
+class CoverLetterRequest(BaseModel):
+    resume_data: dict
+    job_description: str
+    company_name: str
+    position_title: str
+    tone: str = "professional" # professional, friendly, enthusiastic
+
 @app.get("/")
 async def root():
     return {"message": "AI Career Mentor API is running"}
@@ -178,7 +185,8 @@ async def delete_chat_session(session_id: str, db: Session = Depends(get_db)):
         db.delete(chat_session)
         db.commit()
         return {"status": "success", "message": "Session deleted"}
-    return {"status": "error", "message": "Session not found"}    
+    return {"status": "error", "message": "Session not found"} 
+   
 @app.post("/api/upload-resume")
 async def upload_resume(file: UploadFile = File(...)):
     """Uploading and parsing resume file"""
@@ -293,6 +301,142 @@ async def analyze_resume(resume_data: dict):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing resume: {str(e)}")
+
+@app.post("/api/generate-cover-letter")
+async def generate_cover_letter(request: CoverLetterRequest):
+    """Generate personalized cover letter based on resume and job description"""
+    try:
+        # Extract key information from resume
+        contact_info = request.resume_data.get('contact_info', {})
+        skills = request.resume_data.get('skills', {})
+        experience = request.resume_data.get('experience', [])
+        education = request.resume_data.get('education', [])
+        
+        # Build skills summary
+        all_skills = []
+        for category, skill_list in skills.items():
+            all_skills.extend(skill_list)
+        skills_text = ', '.join(all_skills[:10])  # Top 10 skills
+        
+        # Build experience summary
+        recent_experience = experience[:2] if experience else []
+        experience_text = ""
+        for exp in recent_experience:
+            experience_text += f"- {exp.get('title', 'N/A')} at {exp.get('company', 'Previous Company')} ({exp.get('dates', 'Recent')})\n"
+        
+        # Education summary
+        education_text = ""
+        if education:
+            latest_edu = education[0]
+            education_text = f"{latest_edu.get('degree', 'Degree')} from {latest_edu.get('institution', 'University')}"
+        
+        # Set tone-based instructions
+        tone_instructions = {
+            "professional": "Write in a formal, professional tone. Be concise and focus on qualifications.",
+            "friendly": "Write in a warm, approachable tone while maintaining professionalism.",
+            "enthusiastic": "Write with enthusiasm and energy, showing genuine excitement for the role."
+        }
+        
+        tone_instruction = tone_instructions.get(request.tone, tone_instructions["professional"])
+        
+        # Create comprehensive prompt
+        cover_letter_prompt = f"""
+        Write a personalized, compelling cover letter for a tech professional applying to {request.company_name} for the {request.position_title} position.
+        
+        {tone_instruction}
+        
+        ## Candidate Information:
+        **Contact**: {contact_info.get('email', 'candidate@email.com')}
+        **LinkedIn**: {contact_info.get('linkedin', 'Available upon request')}
+        **GitHub**: {contact_info.get('github', 'Available upon request')}
+        
+        **Technical Skills**: {skills_text}
+        
+        **Recent Experience**:
+        {experience_text or "Recent experience in software development"}
+        
+        **Education**: {education_text or "Computer Science background"}
+        
+        ## Job Description:
+        {request.job_description}
+        
+        ## Cover Letter Requirements:
+        1. **Professional header** with contact information
+        2. **Engaging opening** that mentions the specific role and company
+        3. **Skills alignment** - match candidate's skills to job requirements
+        4. **Experience highlights** - specific examples relevant to the role
+        5. **Company knowledge** - show research about the company (if possible from job description)
+        6. **Strong closing** with clear next steps
+        
+        ## Important Guidelines:
+        - Keep to 3-4 paragraphs maximum
+        - Use specific examples from the candidate's background
+        - Match keywords from the job description for ATS optimization
+        - Show genuine interest in the company and role
+        - End with a professional call-to-action
+        - Do not use placeholder text - make it feel personal and specific
+        
+        Format as a complete cover letter ready to send.
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "You are an expert career coach and professional writer specializing in creating compelling cover letters for tech professionals. You write personalized, ATS-optimized cover letters that get results."
+                },
+                {"role": "user", "content": cover_letter_prompt}
+            ],
+            max_tokens=1000,
+            temperature=0.7
+        )
+        
+        cover_letter = response.choices[0].message.content
+        
+        # Generate additional tips
+        tips_prompt = f"""
+        Based on this cover letter for a {request.position_title} role at {request.company_name}, provide 3-5 specific tips to make it even stronger:
+        
+        {cover_letter}
+        
+        Focus on:
+        - ATS optimization opportunities
+        - Ways to make it more compelling
+        - Industry-specific improvements
+        - Quantification opportunities
+        """
+        
+        tips_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a cover letter optimization expert. Provide specific, actionable improvement tips."
+                },
+                {"role": "user", "content": tips_prompt}
+            ],
+            max_tokens=400,
+            temperature=0.6
+        )
+        
+        optimization_tips = tips_response.choices[0].message.content
+        
+        return {
+            "status": "success",
+            "cover_letter": cover_letter,
+            "optimization_tips": optimization_tips,
+            "word_count": len(cover_letter.split()),
+            "company_name": request.company_name,
+            "position_title": request.position_title,
+            "tone": request.tone
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error generating cover letter: {str(e)}"
+        }
 
 
 if __name__ == "__main__":
