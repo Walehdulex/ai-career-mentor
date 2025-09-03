@@ -1,5 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from openai import OpenAI
 import os
@@ -11,6 +12,11 @@ from dotenv import load_dotenv
 from enhanced_resume_parser import EnhancedResumeParser
 from database import create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis
 from sqlalchemy.orm import Session
+from docx import Document
+from docx.shared import Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+import tempfile
+from datetime import datetime
 
 
 load_dotenv()
@@ -56,6 +62,12 @@ class ResumeOptimizationRequest(BaseModel):
     position_title: str
     optimization_level: str = "moderate" # conservative, moderate, aggressive
 
+class DocxGenerationRequest(BaseModel):
+    content: str
+    filename: str
+    doc_type: str
+    company_name: str
+    position_title: str
 
 @app.get("/")
 async def root():
@@ -634,6 +646,186 @@ async def optimize_resume(request: ResumeOptimizationRequest):
             "status": "error",
             "message": f"Error optimizing resume: {str(e)}"
         }
+    
+@app.post("/api/generate-cover-letter-docx")
+async def generate_cover_letter_docx(request: DocxGenerationRequest):
+    """Generate a professionally formatted DOCX cover letter"""
+    try:
+        # Create a new Document
+        doc = Document()
+        
+        # Set document margins
+        sections = doc.sections
+        for section in sections:
+            section.top_margin = Inches(1)
+            section.bottom_margin = Inches(1)
+            section.left_margin = Inches(1)
+            section.right_margin = Inches(1)
+        
+        # Split content into lines
+        lines = request.content.split('\n')
+        
+        # Track if we're in the header (contact info)
+        in_header = True
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                doc.add_paragraph()
+                continue
+            
+            # Check if this is a header line (contact info at the top)
+            if in_header and any(indicator in line.lower() for indicator in ['@', 'linkedin', 'github', 'phone', '|']):
+                p = doc.add_paragraph(line)
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p.runs[0].bold = True
+            # Check if this is the date line
+            elif 'dear' in line.lower() or line.startswith('Dear'):
+                # Add date first
+                date_p = doc.add_paragraph(datetime.now().strftime("%B %d, %Y"))
+                date_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                doc.add_paragraph()  # Empty line
+                
+                # Add the greeting
+                p = doc.add_paragraph(line)
+                in_header = False
+            # Regular paragraph content
+            else:
+                p = doc.add_paragraph(line)
+                if in_header:
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    if not any(char.islower() for char in line):  # If all caps (like name)
+                        p.runs[0].bold = True
+                        p.runs[0].font.size = docx.shared.Pt(14)
+                in_header = False
+        
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+            doc.save(tmp.name)
+            tmp_path = tmp.name
+        
+        # Generate filename
+        safe_company = "".join(c for c in request.company_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_position = "".join(c for c in request.position_title if c.isalnum() or c in (' ', '-', '_')).strip()
+        filename = f"Cover_Letter_{safe_company}_{safe_position}.docx".replace(' ', '_')
+        
+        return FileResponse(
+            path=tmp_path,
+            filename=filename,
+            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        
+    except Exception as e:
+        return {"status": "error", "message": f"Error generating DOCX: {str(e)}"}
+
+@app.post("/api/generate-resume-docx")
+async def generate_resume_docx(request: DocxGenerationRequest):
+    """Generate a professionally formatted DOCX resume"""
+    try:
+        # Create a new Document
+        doc = Document()
+        
+        # Set document margins
+        sections = doc.sections
+        for section in sections:
+            section.top_margin = Inches(0.5)
+            section.bottom_margin = Inches(0.5)
+            section.left_margin = Inches(0.75)
+            section.right_margin = Inches(0.75)
+        
+        # Split content into lines and process
+        lines = request.content.split('\n')
+        current_section = ""
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Check if this is a section header (ALL CAPS or starts with specific keywords)
+            if (line.isupper() and len(line) > 3) or any(line.upper().startswith(section) for section in 
+                ['PROFESSIONAL SUMMARY', 'TECHNICAL SKILLS', 'PROFESSIONAL EXPERIENCE', 
+                 'WORK EXPERIENCE', 'EDUCATION', 'CERTIFICATIONS', 'PROJECTS']):
+                
+                if current_section:  # Add space before new section
+                    doc.add_paragraph()
+                
+                p = doc.add_paragraph(line)
+                p.runs[0].bold = True
+                p.runs[0].font.size = docx.shared.Pt(12)
+                current_section = line
+                
+            # Contact information (first few lines with email, phone, etc.)
+            elif '@' in line or 'linkedin' in line.lower() or 'github' in line.lower() or any(char.isdigit() for char in line):
+                if not current_section:  # This is likely the header
+                    if '@' in line and not any(p.text == line for p in doc.paragraphs):  # Name line
+                        name_line = doc.paragraphs[0].text if doc.paragraphs else ""
+                        if not '@' in name_line:
+                            p = doc.add_paragraph(line)
+                            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        else:
+                            p = doc.add_paragraph(line)
+                            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    else:
+                        p = doc.add_paragraph(line)
+                        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                else:
+                    doc.add_paragraph(line)
+                    
+            # Job titles and company names (likely bold)
+            elif any(keyword in line for keyword in [' at ', ' - ', 'Engineer', 'Developer', 'Manager', 'Analyst']):
+                p = doc.add_paragraph()
+                run = p.add_run(line)
+                run.bold = True
+                
+            # Bullet points
+            elif line.startswith(('•', '-', '*')):
+                p = doc.add_paragraph(line, style='List Bullet')
+                
+            # Regular content
+            else:
+                # If it's the very first line and doesn't contain contact info, it's likely the name
+                if not doc.paragraphs and not any(indicator in line.lower() for indicator in ['@', 'phone', 'linkedin']):
+                    p = doc.add_paragraph(line)
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    p.runs[0].bold = True
+                    p.runs[0].font.size = docx.shared.Pt(16)
+                else:
+                    doc.add_paragraph(line)
+        
+        # Save to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as tmp:
+            doc.save(tmp.name)
+            tmp_path = tmp.name
+        
+        # Generate filename
+        safe_company = "".join(c for c in request.company_name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_position = "".join(c for c in request.position_title if c.isalnum() or c in (' ', '-', '_')).strip()
+        
+        if safe_company and safe_position:
+            filename = f"Resume_{safe_company}_{safe_position}.docx".replace(' ', '_')
+        else:
+            filename = f"Optimized_Resume_{datetime.now().strftime('%Y%m%d')}.docx"
+        
+        return FileResponse(
+            path=tmp_path,
+            filename=filename,
+            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        
+    except Exception as e:
+        return {"status": "error", "message": f"Error generating DOCX: {str(e)}"}
+    
+@app.on_event("startup")
+async def startup_event():
+    import tempfile
+    import glob
+    temp_dir = tempfile.gettempdir()
+    for file in glob.glob(os.path.join(temp_dir, "tmp*.docx")):
+        try:
+            os.remove(file)
+        except:
+            pass
 
 
 if __name__ == "__main__":

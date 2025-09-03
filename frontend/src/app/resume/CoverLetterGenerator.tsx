@@ -1,29 +1,31 @@
-import { useState } from "react";   
+'use client'
+
+import { useState } from 'react'
 import axios from 'axios'
 
 interface CoverLetterResult {
-    cover_letter: string
-    optimization_tips: string
-    word_count: number
-    company_name: string
-    position_title: string
-    tone: string
+  cover_letter: string
+  optimization_tips: string
+  word_count: number
+  company_name: string
+  position_title: string
+  tone: string
 }
 
 interface CoverLetterGeneratorProps {
-    resumeData?: any
+  resumeData?: any
 }
 
 export default function CoverLetterGenerator({ resumeData }: CoverLetterGeneratorProps) {
-    const [jobDescription, setJobDescription] = useState('')
-    const [companyName, setCompanyName] = useState('')
-    const [positionTitle, setPositionTitle] = useState('')
-    const [tone, setTone] = useState('professional')
-    const [isGenerating, setIsGenerating] = useState(false)
-    const [result, setResult] = useState<CoverLetterResult | null>(null)
-    const [error, setError] = useState('')
+  const [jobDescription, setJobDescription] = useState('')
+  const [companyName, setCompanyName] = useState('')
+  const [positionTitle, setPositionTitle] = useState('')
+  const [tone, setTone] = useState('professional')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [result, setResult] = useState<CoverLetterResult | null>(null)
+  const [error, setError] = useState('')
 
-    const generateCoverLetter = async () => {
+  const generateCoverLetter = async () => {
     if (!jobDescription.trim() || !companyName.trim() || !positionTitle.trim()) {
       setError('Please fill in all required fields')
       return
@@ -63,9 +65,40 @@ export default function CoverLetterGenerator({ resumeData }: CoverLetterGenerato
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
+      // You could add a toast notification here
       alert('Copied to clipboard!')
     } catch (error) {
       console.error('Failed to copy to clipboard:', error)
+    }
+  }
+
+  const downloadAsDocx = async (content: string, filename: string, docType: string) => {
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/generate-${docType}-docx`,
+        {
+          content: content,
+          filename: filename,
+          doc_type: docType,
+          company_name: companyName,
+          position_title: positionTitle
+        },
+        {
+          responseType: 'blob'
+        }
+      )
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const element = document.createElement('a')
+      element.href = url
+      element.download = filename.replace('.txt', '.docx')
+      document.body.appendChild(element)
+      element.click()
+      document.body.removeChild(element)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading DOCX:', error)
+      alert('Error downloading DOCX file')
     }
   }
 
@@ -219,10 +252,10 @@ export default function CoverLetterGenerator({ resumeData }: CoverLetterGenerato
                     Copy
                   </button>
                   <button
-                    onClick={() => downloadAsText(result.cover_letter, `cover-letter-${result.company_name.toLowerCase()}-${result.position_title.toLowerCase().replace(/\s+/g, '-')}.txt`)}
+                    onClick={() => downloadAsDocx(result.cover_letter, `cover-letter-${result.company_name.toLowerCase()}-${result.position_title.toLowerCase().replace(/\s+/g, '-')}.docx`, 'cover-letter')}
                     className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-md text-sm transition-colors"
                   >
-                    Download
+                    Download DOCX
                   </button>
                 </div>
               </div>

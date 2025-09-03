@@ -73,6 +73,36 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
     }
   }
 
+  const downloadAsDocx = async (content: string, filename: string, docType: string) => {
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/api/generate-${docType}-docx`,
+        {
+          content: content,
+          filename: filename,
+          doc_type: docType,
+          company_name: companyName,
+          position_title: positionTitle
+        },
+        {
+          responseType: 'blob'
+        }
+      )
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const element = document.createElement('a')
+      element.href = url
+      element.download = filename.replace('.txt', '.docx')
+      document.body.appendChild(element)
+      element.click()
+      document.body.removeChild(element)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error downloading DOCX:', error)
+      alert('Error downloading DOCX file')
+    }
+  }
+
   const downloadAsText = (text: string, filename: string) => {
     const element = document.createElement('a')
     const file = new Blob([text], { type: 'text/plain' })
@@ -290,10 +320,10 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
                       Copy
                     </button>
                     <button
-                      onClick={() => downloadAsText(result.optimized_resume, `optimized-resume-${result.company_name.toLowerCase()}-${result.position_title.toLowerCase().replace(/\s+/g, '-')}.txt`)}
+                      onClick={() => downloadAsDocx(result.optimized_resume, `optimized-resume-${result.company_name.toLowerCase()}-${result.position_title.toLowerCase().replace(/\s+/g, '-')}.docx`, 'resume')}
                       className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded-md text-sm transition-colors"
                     >
-                      Download
+                      Download DOCX
                     </button>
                   </div>
                 </div>
