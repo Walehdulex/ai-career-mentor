@@ -49,6 +49,14 @@ class CoverLetterRequest(BaseModel):
     position_title: str
     tone: str = "professional" # professional, friendly, enthusiastic
 
+class ResumeOptimizationRequest(BaseModel):
+    resume_data : dict
+    job_description : str
+    company_name : str
+    position_title: str
+    optimization_level: str = "moderate" # conservative, moderate, aggressive
+
+
 @app.get("/")
 async def root():
     return {"message": "AI Career Mentor API is running"}
@@ -436,6 +444,195 @@ async def generate_cover_letter(request: CoverLetterRequest):
         return {
             "status": "error",
             "message": f"Error generating cover letter: {str(e)}"
+        }
+@app.post("/api/optimize-resume")
+async def optimize_resume(request: ResumeOptimizationRequest):
+    """Optimize resume for specific job posting with ATS keywords and content matching"""
+    try:
+        # Extract current resume information
+        contact_info = request.resume_data.get('contact_info', {})
+        skills = request.resume_data.get('skills', {})
+        experience = request.resume_data.get('experience', [])
+        education = request.resume_data.get('education', [])
+        raw_text = request.resume_data.get('raw_text', '')
+        
+        # Build current skills summary
+        all_skills = []
+        for category, skill_list in skills.items():
+            all_skills.extend(skill_list)
+        current_skills = ', '.join(all_skills)
+        
+        # Build experience summary
+        experience_summary = ""
+        for exp in experience:
+            title = exp.get('title', 'Position')
+            company = exp.get('company', 'Company')
+            dates = exp.get('dates', 'Recent')
+            description = exp.get('description', '')
+            experience_summary += f"**{title}** at {company} ({dates})\n{description}\n\n"
+        
+        # Set optimization level instructions
+        optimization_instructions = {
+            "conservative": "Make minimal, natural changes. Only add keywords where they fit organically. Maintain original tone and structure.",
+            "moderate": "Add relevant keywords and rephrase content to better match job requirements. Make strategic improvements while keeping authenticity.",
+            "aggressive": "Significantly optimize for ATS and keyword matching. Restructure content to closely align with job requirements while remaining truthful."
+        }
+        
+        opt_instruction = optimization_instructions.get(request.optimization_level, optimization_instructions["moderate"])
+        
+        # Create comprehensive optimization prompt
+        optimization_prompt = f"""
+        You are an expert ATS optimization specialist and career coach. Optimize this resume for the specific job posting while maintaining authenticity and truthfulness.
+        
+        ## Optimization Level: {request.optimization_level.title()}
+        {opt_instruction}
+        
+        ## Target Role Information:
+        **Company**: {request.company_name}
+        **Position**: {request.position_title}
+        
+        ## Job Description & Requirements:
+        {request.job_description}
+        
+        ## Current Resume Information:
+        
+        **Contact Information:**
+        - Email: {contact_info.get('email', 'email@example.com')}
+        - Phone: {contact_info.get('phone', 'Phone number')}
+        - LinkedIn: {contact_info.get('linkedin', 'LinkedIn profile')}
+        - GitHub: {contact_info.get('github', 'GitHub profile')}
+        - Portfolio: {contact_info.get('portfolio', 'Portfolio website')}
+        
+        **Current Technical Skills:**
+        {current_skills}
+        
+        **Experience:**
+        {experience_summary}
+        
+        **Education:**
+        {chr(10).join([f"- {edu.get('degree', 'Degree')} from {edu.get('institution', 'Institution')} ({edu.get('year', 'Year')})" for edu in education])}
+        
+        ## Optimization Task:
+        
+        1. **Analyze Job Requirements**: Identify key skills, technologies, and qualifications mentioned in the job description.
+        
+        2. **Keyword Integration**: Naturally incorporate relevant keywords from the job posting into appropriate sections.
+        
+        3. **Skills Section Optimization**: 
+           - Add missing relevant skills that the candidate likely has
+           - Prioritize skills mentioned in the job description
+           - Use exact terminology from the job posting when possible
+        
+        4. **Experience Description Enhancement**:
+           - Rephrase bullet points to match job requirements
+           - Add quantifiable achievements where appropriate
+           - Use action verbs that align with the job description
+           - Highlight relevant projects and responsibilities
+        
+        5. **Professional Summary**: Create a compelling 2-3 line professional summary that directly addresses the job requirements.
+        
+        ## Output Format:
+        Provide a complete, optimized resume in a clean, professional format that includes:
+        
+        **[Full Name]**
+        [Contact Information]
+        
+        **PROFESSIONAL SUMMARY**
+        [2-3 lines highlighting relevant experience and skills for this specific role]
+        
+        **TECHNICAL SKILLS**
+        [Organized, keyword-optimized skills section]
+        
+        **PROFESSIONAL EXPERIENCE**
+        [Optimized work experience with job-relevant descriptions]
+        
+        **EDUCATION**
+        [Education information]
+        
+        **ADDITIONAL SECTIONS** (if applicable)
+        [Certifications, Projects, etc.]
+        
+        ## Important Guidelines:
+        - Use keywords from the job description naturally throughout
+        - Maintain truthfulness - don't add skills or experience the candidate doesn't have
+        - Prioritize most relevant information at the top of each section
+        - Use ATS-friendly formatting (no tables, simple bullet points)
+        - Match the tone and terminology used in the job posting
+        - Include quantifiable achievements where possible
+        - Keep total length appropriate (1-2 pages worth of content)
+        
+        Focus on making this resume highly likely to pass ATS screening and catch the recruiter's attention for this specific role.
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system", 
+                    "content": "You are an expert ATS optimization specialist with deep knowledge of applicant tracking systems and recruiting best practices. You create highly optimized resumes that get past ATS filters while maintaining authenticity."
+                },
+                {"role": "user", "content": optimization_prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.6
+        )
+
+        optimized_resume = response.choices[0].message.content
+        
+        # Generate optimization summary and changes made
+        changes_prompt = f"""
+        Compare the original resume content with the optimized version and provide a detailed summary of changes made:
+        
+        ## Original Resume Key Points:
+        Skills: {current_skills}
+        Experience: {len(experience)} positions listed
+        
+        ## Optimized Resume:
+        {optimized_resume}
+        
+        ## Job Requirements:
+        {request.job_description[:500]}...
+        
+        Provide a summary including:
+        1. **Key Changes Made**: Specific modifications to content
+        2. **Keywords Added**: New relevant keywords incorporated
+        3. **ATS Improvements**: How the resume is now more ATS-friendly
+        4. **Match Score**: Estimated improvement in job-match percentage
+        5. **Recommendations**: Any additional suggestions for the candidate
+        
+        Keep the summary concise but comprehensive.
+        """
+        
+        changes_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a resume optimization analyst. Provide clear, actionable summaries of resume improvements."
+                },
+                {"role": "user", "content": changes_prompt}
+            ],
+            max_tokens=600,
+            temperature=0.5
+        )
+        
+        optimization_summary = changes_response.choices[0].message.content
+        
+        return {
+            "status": "success",
+            "optimized_resume": optimized_resume,
+            "optimization_summary": optimization_summary,
+            "original_word_count": len(raw_text.split()),
+            "optimized_word_count": len(optimized_resume.split()),
+            "company_name": request.company_name,
+            "position_title": request.position_title,
+            "optimization_level": request.optimization_level
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Error optimizing resume: {str(e)}"
         }
 
 

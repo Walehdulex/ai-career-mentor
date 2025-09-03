@@ -3,6 +3,8 @@
 import React, { useState } from 'react'
 import axios from 'axios'
 import CoverLetterGenerator from './CoverLetterGenerator'
+import ResumeOptimizer from './ResumeOptimizer'
+
 
 interface UploadedResumeData {
     filename: string
@@ -259,6 +261,17 @@ const handleFileUpload = async (file: File) => {
               Create personalized cover letters for specific job applications using your resume data.
             </p>
             <CoverLetterGenerator resumeData={uploadedData.data} />
+          </div>
+        )}
+
+        {/* Resume Optimizer - Show after successful analysis */}
+        {analysis && uploadedData && (
+          <div className="bg-white rounded-lg shadow-sm border p-6">
+            <h2 className="text-xl font-semibold mb-4">🎯 Optimize Resume for Specific Jobs</h2>
+            <p className="text-gray-600 mb-4">
+              Tailor your resume with job-specific keywords and ATS optimization for higher match rates.
+            </p>
+            <ResumeOptimizer resumeData={uploadedData.data} />
           </div>
         )}
       </div>
