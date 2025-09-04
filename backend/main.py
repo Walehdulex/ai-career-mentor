@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer
 from pydantic import BaseModel
 from openai import OpenAI
 import os
@@ -10,13 +11,14 @@ import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 from enhanced_resume_parser import EnhancedResumeParser
-from database import create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis
+from database import create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity
 from sqlalchemy.orm import Session
 from docx import Document
 from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import tempfile
 from datetime import datetime
+from auth import verify_password, get_password_hash, create_access_token, get_current_user_id
 
 
 load_dotenv()
@@ -68,6 +70,48 @@ class DocxGenerationRequest(BaseModel):
     doc_type: str
     company_name: str
     position_title: str
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    full_name: str
+    role: str ="job_seeker"
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class UserResponse(BaseModel):
+    id:int
+    username: str
+    email: str
+    full_name: str
+    role: str
+    is_active: bool
+    created_at: datetime
+    resume_analyses_count: int
+    cover_letters_count: int
+    optimizations_count: int
+    chat_messages_count: int
+
+class ProfileUpdate(BaseModel):
+    current_title: str = None
+    experience_level: str = None
+    industry: str = None
+    location: str = None
+    salary_range: str = None
+    technical_skills: list = None
+    soft_skills: list = None
+    certifications: list = None
+    languages: list = None
+    preferred_roles: list = None
+    preferred_companies: list = None
+    remote_preference: str = None
+    willing_to_relocate: bool = None
+    linkedin_url: str = None
+    github_url: str = None
+    portfolio_url: str = None
 
 @app.get("/")
 async def root():
@@ -827,6 +871,216 @@ async def startup_event():
         except:
             pass
 
+@app.post("/api/auth/register")
+async def register_user(user_data: UserCreate, db: Session = Depends(get_db)):
+    """Register a new user"""
+    try:
+        # Check if user already exists
+        existing_user = db.query(User).filter(
+            (User.email == user_data.email) | (User.username == user_data.username)
+        ).first()
+        
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User with this email or username already exists"
+            )
+        
+        # Create new user
+        hashed_password = get_password_hash(user_data.password)
+        db_user = User(
+            username=user_data.username,
+            email=user_data.email,
+            hashed_password=hashed_password,
+            full_name=user_data.full_name,
+            role=user_data.role
+        )
+        
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        
+        # Create user profile
+        user_profile = UserProfile(user_id=db_user.id)
+        db.add(user_profile)
+        db.commit()
+        
+        # Create access token
+        access_token = create_access_token(data={"sub": str(db_user.id)})
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": db_user.id,
+                "username": db_user.username,
+                "email": db_user.email,
+                "full_name": db_user.full_name,
+                "role": db_user.role
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating user: {str(e)}"
+        )
+
+@app.post("/api/auth/login")
+async def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
+    """Login user and return access token"""
+    try:
+        # Find user by username or email
+        user = db.query(User).filter(
+            (User.username == login_data.username) | (User.email == login_data.username)
+        ).first()
+        
+        if not user or not verify_password(login_data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username/email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Inactive user account"
+            )
+        
+        # Create access token
+        access_token = create_access_token(data={"sub": str(user.id)})
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role,
+                "resume_analyses_count": user.resume_analyses_count,
+                "cover_letters_count": user.cover_letters_count,
+                "optimizations_count": user.optimizations_count,
+                "chat_messages_count": user.chat_messages_count
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error during login: {str(e)}"
+        )
+    
+@app.get("/api/auth/me")
+async def get_current_user(current_user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    """Get current user information"""
+    try:
+        user = db.query(User).filter(User.id == int(current_user_id)).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        return {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "is_active": user.is_active,
+            "created_at": user.created_at,
+            "resume_analyses_count": user.resume_analyses_count,
+            "cover_letters_count": user.cover_letters_count,
+            "optimizations_count": user.optimizations_count,
+            "chat_messages_count": user.chat_messages_count
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting user: {str(e)}"
+        )
+
+@app.get("/api/profile")
+async def get_user_profile(current_user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    """Get user profile information"""
+    try:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == int(current_user_id)).first()
+        if not profile:
+            # Create empty profile if it doesn't exist
+            profile = UserProfile(user_id=int(current_user_id))
+            db.add(profile)
+            db.commit()
+            db.refresh(profile)
+        
+        return {
+            "current_title": profile.current_title,
+            "experience_level": profile.experience_level,
+            "industry": profile.industry,
+            "location": profile.location,
+            "salary_range": profile.salary_range,
+            "technical_skills": json.loads(profile.technical_skills) if profile.technical_skills else [],
+            "soft_skills": json.loads(profile.soft_skills) if profile.soft_skills else [],
+            "certifications": json.loads(profile.certifications) if profile.certifications else [],
+            "languages": json.loads(profile.languages) if profile.languages else [],
+            "preferred_roles": json.loads(profile.preferred_roles) if profile.preferred_roles else [],
+            "preferred_companies": json.loads(profile.preferred_companies) if profile.preferred_companies else [],
+            "remote_preference": profile.remote_preference,
+            "willing_to_relocate": profile.willing_to_relocate,
+            "linkedin_url": profile.linkedin_url,
+            "github_url": profile.github_url,
+            "portfolio_url": profile.portfolio_url,
+            "updated_at": profile.updated_at
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting profile: {str(e)}"
+        )
+
+@app.put("/api/profile")
+async def update_user_profile(
+    profile_data: ProfileUpdate, 
+    current_user_id: str = Depends(get_current_user_id), 
+    db: Session = Depends(get_db)
+):
+    """Update user profile information"""
+    try:
+        profile = db.query(UserProfile).filter(UserProfile.user_id == int(current_user_id)).first()
+        if not profile:
+            profile = UserProfile(user_id=int(current_user_id))
+            db.add(profile)
+        
+        # Update profile fields
+        update_data = profile_data.dict(exclude_unset=True)
+        
+        for field, value in update_data.items():
+            if field in ['technical_skills', 'soft_skills', 'certifications', 'languages', 
+                        'preferred_roles', 'preferred_companies'] and value is not None:
+                setattr(profile, field, json.dumps(value))
+            elif value is not None:
+                setattr(profile, field, value)
+        
+        db.commit()
+        db.refresh(profile)
+        
+        return {"message": "Profile updated successfully"}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating profile: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn
