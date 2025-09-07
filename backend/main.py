@@ -14,7 +14,7 @@ from enhanced_resume_parser import EnhancedResumeParser
 from database import create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity
 from sqlalchemy.orm import Session
 from docx import Document
-from docx.shared import Inches
+from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import tempfile
 from datetime import datetime
@@ -796,7 +796,7 @@ async def generate_resume_docx(request: DocxGenerationRequest):
                 
                 p = doc.add_paragraph(line)
                 p.runs[0].bold = True
-                p.runs[0].font.size = docx.shared.Pt(12)
+                p.runs[0].font.size = Pt(12)
                 current_section = line
                 
             # Contact information (first few lines with email, phone, etc.)
@@ -833,7 +833,7 @@ async def generate_resume_docx(request: DocxGenerationRequest):
                     p = doc.add_paragraph(line)
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     p.runs[0].bold = True
-                    p.runs[0].font.size = docx.shared.Pt(16)
+                    p.runs[0].font.size = Pt(16)
                 else:
                     doc.add_paragraph(line)
         

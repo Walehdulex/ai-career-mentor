@@ -244,7 +244,7 @@ const handleFileUpload = async (file: File) => {
 
         {analysis && (
           <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-4">🤖 AI Career Feedback</h2>
+            <h2 className="text-xl font-semibold mb-4 text-black">🤖 AI Career Feedback</h2>
             <div className="prose max-w-none">
               <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
                 {analysis.analysis}
