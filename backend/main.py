@@ -1,7 +1,7 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, status 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from openai import OpenAI
 import os
@@ -19,7 +19,22 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import tempfile
 from datetime import datetime
 from auth import verify_password, get_password_hash, create_access_token, get_current_user_id
+from typing import Optional
 
+security = HTTPBearer(auto_error=False)
+
+async def get_current_user_optional(
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), 
+        db: Session = Depends(get_db)
+) -> Optional[int]:
+    if not credentials:
+        return None
+    try:
+        from auth import verify_token
+        token_data = verify_token(credentials)
+        return int(token_data.get("sub"))
+    except: 
+        return None
 
 load_dotenv()
 
@@ -118,21 +133,27 @@ async def root():
     return {"message": "AI Career Mentor API is running"}
 
 @app.post("/api/chat")
-async def chat_with_ai(chat_message: ChatMessageSchema, db: Session = Depends(get_db)):
+async def chat_with_ai(
+    chat_message: ChatMessageSchema, 
+    db: Session = Depends(get_db),
+    current_user_id: Optional[int] = Depends(get_current_user_optional)
+):
     try:
-        #Creating or getting session
+        # Creating or getting session
         session_id = chat_message.session_id or str(uuid.uuid4())
 
-
-        #gettting or creating session
+        # Getting or creating session
         chat_session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
         if not chat_session:
-            chat_session = ChatSession(session_id=session_id)
+            chat_session = ChatSession(
+                session_id=session_id,
+                user_id=current_user_id  # This will be None if not authenticated
+            )
             db.add(chat_session)
             db.commit()
             db.refresh(chat_session)
 
-        # Save user message (SQLAlchemy model, not Pydantic one)
+        # Save user message
         user_message = ChatMessage(
             session_id=session_id,
             role="user",
@@ -150,16 +171,11 @@ async def chat_with_ai(chat_message: ChatMessageSchema, db: Session = Depends(ge
         # Build conversation context
         conversation_history = []
         for msg in reversed(recent_messages):
-            role = "assistant" if msg.role == "ai" else msg.role  # Fix the role mapping
+            role = "assistant" if msg.role == "ai" else msg.role
             conversation_history.append({
                 "role": role,
                 "content": msg.content
             })
-        # Add current user message
-        conversation_history.append({
-            "role": "user",
-            "content": chat_message.message
-        })
 
         # System prompt
         system_prompt = """You are an AI career mentor specializing in tech careers.
@@ -197,6 +213,12 @@ async def chat_with_ai(chat_message: ChatMessageSchema, db: Session = Depends(ge
             )
             chat_session.title = title
 
+        # Increment user's chat message count if authenticated
+        if current_user_id:
+            user = db.query(User).filter(User.id == current_user_id).first()
+            if user:
+                user.chat_messages_count = (user.chat_messages_count or 0) + 1
+
         db.commit()
 
         return {
@@ -206,15 +228,29 @@ async def chat_with_ai(chat_message: ChatMessageSchema, db: Session = Depends(ge
         }
 
     except Exception as e:
+        db.rollback()
         return {
             "response": f"Sorry, there was an error: {str(e)}",
             "status": "error"
         }
     
 @app.get("/api/chat/sessions")
-async def get_chat_sessions(db: Session = Depends(get_db)):
-    """Get all chat sessions"""
-    sessions = db.query(ChatSession).order_by(ChatSession.updated_at.desc()).all()
+async def get_chat_sessions(
+    db: Session = Depends(get_db),
+    current_user_id: Optional[int] = Depends(get_current_user_optional)
+):
+    """Get chat sessions for current user only"""
+    if current_user_id:
+        # Get sessions for authenticated user
+        sessions = db.query(ChatSession).filter(
+            ChatSession.user_id == current_user_id
+        ).order_by(ChatSession.updated_at.desc()).all()
+    else:
+        # For non-authenticated users, return empty list or sessions without user_id
+        sessions = db.query(ChatSession).filter(
+            ChatSession.user_id.is_(None)
+        ).order_by(ChatSession.updated_at.desc()).all()
+    
     return [
         {
             "session_id": session.session_id,
@@ -224,6 +260,7 @@ async def get_chat_sessions(db: Session = Depends(get_db)):
         }
         for session in sessions
     ]
+
 
 @app.get("/api/chat/sessions/{session_id}")
 async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
@@ -286,10 +323,21 @@ async def upload_resume(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error processing resume: {str(e)}")
     
 @app.post("/api/analyze-resume")
-async def analyze_resume(resume_data: dict):
-    #Analyzing parsed resume with AI and providing feedback
+async def analyze_resume(
+    resume_data: dict, 
+    db: Session = Depends(get_db),
+    current_user_id: Optional[int] = Depends(get_current_user_optional)
+    ):
+    """Analyzing parsed resume with AI and providing feedback"""
     try:
-        # Create analysis prompt
+        # Try to get current user ID if authenticated
+        user_id = None
+        try:
+            user_id = current_user_id
+        except:
+            pass  # Continue without authentication
+
+        # Create analysis prompt (your existing code)
         skills_text = ""
         for category, skills in resume_data.get("skills", {}).items():
             if skills:
@@ -356,6 +404,17 @@ async def analyze_resume(resume_data: dict):
             max_tokens=800,
             temperature=0.7
         )
+
+        # Increment user's resume analysis count if authenticated
+        if user_id:
+            try:
+                user = db.query(User).filter(User.id == int(user_id)).first()
+                if user:
+                    user.resume_analyses_count = (user.resume_analyses_count or 0) + 1
+                    db.commit()
+                    print(f"Updated resume count for user {current_user_id}: {user.resume_analyses_count}")
+            except Exception as e:
+                print(f"Error updating resume analysis count: {e}")
         
         return {
             "status": "success",
@@ -367,7 +426,11 @@ async def analyze_resume(resume_data: dict):
         raise HTTPException(status_code=500, detail=f"Error analyzing resume: {str(e)}")
 
 @app.post("/api/generate-cover-letter")
-async def generate_cover_letter(request: CoverLetterRequest):
+async def generate_cover_letter(
+    request: CoverLetterRequest,
+    db: Session = Depends(get_db),
+    current_user_id: Optional[int] = Depends(get_current_user_optional)
+    ):
     """Generate personalized cover letter based on resume and job description"""
     try:
         # Extract key information from resume
@@ -485,6 +548,17 @@ async def generate_cover_letter(request: CoverLetterRequest):
         )
         
         optimization_tips = tips_response.choices[0].message.content
+
+        # Increment user's cover letter count if authenticated
+        if current_user_id:
+            try:
+                user = db.query(User).filter(User.id == int(current_user_id)).first()
+                if user:
+                    user.cover_letters_count = (user.cover_letters_count or 0) + 1
+                    db.commit()
+                    print(f"Updated cover letter count for user {current_user_id}: {user.cover_letters_count}")
+            except Exception as e:
+                print(f"Error updating cover letter count: {e}")
         
         return {
             "status": "success",
@@ -495,14 +569,20 @@ async def generate_cover_letter(request: CoverLetterRequest):
             "position_title": request.position_title,
             "tone": request.tone
         }
-        
+    
     except Exception as e:
         return {
             "status": "error",
             "message": f"Error generating cover letter: {str(e)}"
         }
+    
+    
 @app.post("/api/optimize-resume")
-async def optimize_resume(request: ResumeOptimizationRequest):
+async def optimize_resume(
+    request: ResumeOptimizationRequest,
+    db: Session = Depends(get_db),
+    current_user_id: Optional[int] = Depends(get_current_user_optional)
+    ):
     """Optimize resume for specific job posting with ATS keywords and content matching"""
     try:
         # Extract current resume information
@@ -673,6 +753,18 @@ async def optimize_resume(request: ResumeOptimizationRequest):
         )
         
         optimization_summary = changes_response.choices[0].message.content
+
+        # Increment user's optimization count if authenticated
+        if current_user_id:
+            try:
+                user = db.query(User).filter(User.id == int(current_user_id)).first()
+                if user:
+                    user.optimizations_count = (user.optimizations_count or 0) + 1
+                    db.commit()
+                    print(f"Updated optimization count for user {current_user_id}: {user.optimizations_count}")
+            except Exception as e:
+                print(f"Error updating optimization count: {e}")
+            
         
         return {
             "status": "success",
@@ -684,7 +776,8 @@ async def optimize_resume(request: ResumeOptimizationRequest):
             "position_title": request.position_title,
             "optimization_level": request.optimization_level
         }
-        
+    
+    
     except Exception as e:
         return {
             "status": "error",
@@ -740,7 +833,7 @@ async def generate_cover_letter_docx(request: DocxGenerationRequest):
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                     if not any(char.islower() for char in line):  # If all caps (like name)
                         p.runs[0].bold = True
-                        p.runs[0].font.size = docx.shared.Pt(14)
+                        p.runs[0].font.size = Pt(14)
                 in_header = False
         
         # Save to temporary file

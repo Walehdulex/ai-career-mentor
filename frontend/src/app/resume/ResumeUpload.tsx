@@ -1,5 +1,6 @@
 'use client'
-
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import React, { useState } from 'react'
 import axios from 'axios'
 import CoverLetterGenerator from './CoverLetterGenerator'
@@ -232,7 +233,7 @@ const handleFileUpload = async (file: File) => {
           </div>
         )}
 
-        {/* AI Analysis */}
+         AI Analysis
         {analyzing && (
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <div className="flex items-center">
@@ -242,17 +243,50 @@ const handleFileUpload = async (file: File) => {
           </div>
         )}
 
+
         {analysis && (
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-xl font-semibold mb-4 text-black">🤖 AI Career Feedback</h2>
-            <div className="prose max-w-none">
-              <div className="whitespace-pre-wrap text-gray-700 leading-relaxed">
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+            {/* Header */}
+            <div className="flex items-center space-x-3 border-b pb-4 mb-6">
+              <span className="text-3xl">🤖</span>
+              <h2 className="text-2xl font-bold text-gray-900">AI Career Feedback</h2>
+            </div>
+
+            {/* Markdown Content */}
+            <div className="prose prose-gray max-w-none text-gray-800">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({node, ...props}) => (
+                    <h1 className="text-2xl font-bold text-blue-600 mt-6 mb-4" {...props} />
+                  ),
+                  h2: ({node, ...props}) => (
+                    <h2 className="text-xl font-semibold text-indigo-600 mt-5 mb-3" {...props} />
+                  ),
+                  h3: ({node, ...props}) => (
+                    <h3 className="text-lg font-semibold text-gray-800 mt-4 mb-2" {...props} />
+                  ),
+                  p: ({node, ...props}) => (
+                    <p className="text-gray-700 leading-relaxed mb-3" {...props} />
+                  ),
+                  ul: ({node, ...props}) => (
+                    <ul className="list-disc pl-6 space-y-1 text-gray-700" {...props} />
+                  ),
+                  li: ({node, ...props}) => (
+                    <li className="leading-snug" {...props} />
+                  ),
+                  strong: ({node, ...props}) => (
+                    <strong className="font-semibold text-gray-900" {...props} />
+                  ),
+                }}
+              >
                 {analysis.analysis}
-              </div>
+              </ReactMarkdown>
             </div>
           </div>
         )}
 
+       
         {/* Cover Letter Generator - Show after successful analysis */}
         {analysis && uploadedData && (
           <div className="bg-white rounded-lg shadow-sm border p-6">
