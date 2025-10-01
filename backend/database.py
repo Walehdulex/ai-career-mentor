@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -36,6 +36,11 @@ class User(Base):
     chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
     resume_analyses = relationship("ResumeAnalysis", back_populates="user", cascade="all, delete-orphan")
     user_profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    job_preferences = relationship("UserJobPreferences", back_populates="user", uselist=False)
+    applications = relationship("JobApplication", back_populates="user")
+    saved_jobs = relationship("SavedJob", back_populates="user")
+    job_matches = relationship("JobMatch", back_populates="user")
+    job_alerts = relationship("JobAlert", back_populates="user")
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"
@@ -155,6 +160,234 @@ class UserActivity(Base):
     # Relationship
     user = relationship("User")
 
+class JobPosting(Base):
+    __tablename__ = "job_postings"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Basic job information
+    title = Column(String, index=True)
+    company_name = Column(String, index=True)
+    company_logo_url = Column(String)
+    location = Column(String)
+    remote_type = Column(String)  # remote, hybrid, onsite
+
+    # Job details
+    description = Column(Text)
+    requirements = Column(Text)
+    salary_min = Column(Integer)
+    salary_max = Column(Integer)
+    salary_currency = Column(String, default="USD")
+    experience_level = Column(String)  # junior, mid, senior, lead, executive
+    employment_type = Column(String)  # full-time, part-time, contract, internship
+
+    # Technical requirements
+    required_skills = Column(JSON)  # List of required skills
+    preferred_skills = Column(JSON)  # List of preferred skills
+    technologies = Column(JSON)  # Programming languages, frameworks, tools
+    industry = Column(String)
+    company_size = Column(String)  # startup, small, medium, large, enterprise
+
+    # External data
+    external_id = Column(String, unique=True, index=True)  # ID from job board API
+    source = Column(String)  # adzuna, indeed, linkedin, etc.
+    apply_url = Column(String)
+    posted_date = Column(DateTime)
+    expires_date = Column(DateTime)
+
+    # Internal tracking
+    is_active = Column(Boolean, default=True)
+    is_featured = Column(Boolean, default=False)
+    view_count = Column(Integer, default=0)
+    application_count = Column(Integer, default=0)
+
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    applications = relationship("JobApplication", back_populates="job")
+    saved_jobs = relationship("SavedJob", back_populates="job")
+    job_matches = relationship("JobMatch", back_populates="job")
+
+
+class UserJobPreferences(Base):
+    __tablename__ = "user_job_preferences"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    
+    # Job search preferences
+    preferred_titles = Column(JSON)  # List of preferred job titles
+    preferred_companies = Column(JSON)  # List of preferred companies
+    preferred_industries = Column(JSON)  # List of preferred industries
+    preferred_locations = Column(JSON)  # List of preferred locations
+    remote_preference = Column(String)  # remote_only, hybrid, onsite, flexible
+
+    # Salary preferences
+    minimum_salary = Column(Integer)
+    maximum_salary = Column(Integer)
+    salary_currency = Column(String, default="USD")
+    
+    # Experience and role preferences
+    experience_levels = Column(JSON)  # junior, mid, senior, etc.
+    employment_types = Column(JSON)  # full-time, contract, etc.
+    company_sizes = Column(JSON)  # startup, enterprise, etc.
+
+    # Skills and technologies
+    must_have_skills = Column(JSON)  # Required skills for recommendations
+    nice_to_have_skills = Column(JSON)  # Preferred but not required
+    avoid_technologies = Column(JSON)  # Technologies to avoid
+    
+    # Notification preferences
+    email_notifications = Column(Boolean, default=True)
+    notification_frequency = Column(String, default="daily")  # daily, weekly, instant
+    max_recommendations_per_day = Column(Integer, default=5)
+
+    # Search behavior
+    last_search_query = Column(String)
+    search_radius_miles = Column(Integer, default=25)
+    willing_to_relocate = Column(Boolean, default=False)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    user = relationship("User", back_populates="job_preferences")
+
+class JobApplication(Base):
+    __tablename__ = "job_applications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    job_id = Column(Integer, ForeignKey("job_postings.id"))
+    
+    # Application details
+    status = Column(String, default="applied")  # applied, screening, interview, offer, rejected, withdrawn
+    applied_date = Column(DateTime, default=datetime.utcnow)
+    cover_letter_used = Column(Text)
+    resume_version_used = Column(Text)
+
+    # Tracking information
+    application_method = Column(String)  # direct, platform, referral
+    referral_source = Column(String)
+    external_application_id = Column(String)
+    
+    # Interview tracking
+    interview_scheduled = Column(DateTime)
+    interview_completed = Column(DateTime)
+    interview_feedback = Column(Text)
+    
+    # Follow-up tracking
+    last_follow_up = Column(DateTime)
+    next_follow_up_due = Column(DateTime)
+    follow_up_count = Column(Integer, default=0)
+    
+    # Outcome tracking
+    rejection_reason = Column(String)
+    offer_amount = Column(Integer)
+    offer_currency = Column(String)
+    offer_accepted = Column(Boolean)
+    
+    # Notes and feedback
+    user_notes = Column(Text)
+    ai_suggestions = Column(Text)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    job = relationship("JobPosting", back_populates="applications")
+
+class SavedJob(Base):
+    __tablename__ = "saved_jobs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    job_id = Column(Integer, ForeignKey("job_postings.id"))
+    
+    # Save details
+    saved_date = Column(DateTime, default=datetime.utcnow)
+    save_reason = Column(String)  # interested, backup, research
+    user_notes = Column(Text)
+
+    # Engagement tracking
+    view_count = Column(Integer, default=1)
+    last_viewed = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    job = relationship("JobPosting", back_populates="saved_jobs")
+
+class JobMatch(Base):
+    __tablename__ = "job_matches"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    job_id = Column(Integer, ForeignKey("job_postings.id"))
+    
+    # Matching scores
+    overall_score = Column(Float)  # 0-100 overall match score
+    skills_score = Column(Float)  # How well skills match
+    experience_score = Column(Float)  # Experience level match
+    location_score = Column(Float)  # Location preference match
+    salary_score = Column(Float)  # Salary expectation match
+    company_score = Column(Float)  # Company preference match
+
+    # Matching details
+    matching_skills = Column(JSON)  # Skills that matched
+    missing_skills = Column(JSON)  # Skills user lacks
+    matching_keywords = Column(JSON)  # Keywords that matched
+    
+    # Recommendation tracking
+    shown_to_user = Column(Boolean, default=False)
+    user_feedback = Column(String)  # interested, not_interested, applied
+    feedback_date = Column(DateTime)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    job = relationship("JobPosting", back_populates="job_matches")
+
+class JobAlert(Base):
+    __tablename__ = "job_alerts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    
+    # Alert configuration
+    alert_name = Column(String)
+    search_query = Column(String)
+    location_filter = Column(String)
+    salary_min = Column(Integer)
+    remote_only = Column(Boolean, default=False)
+    
+    # Filtering criteria
+    required_skills = Column(JSON)
+    company_sizes = Column(JSON)
+    experience_levels = Column(JSON)
+    
+    # Alert behavior
+    is_active = Column(Boolean, default=True)
+    frequency = Column(String, default="daily")  # instant, daily, weekly
+    last_sent = Column(DateTime)
+    
+    # Performance tracking
+    jobs_found_count = Column(Integer, default=0)
+    click_through_rate = Column(Float, default=0.0)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    user = relationship("User")            
 
 # Creating Tables
 def create_tables():
