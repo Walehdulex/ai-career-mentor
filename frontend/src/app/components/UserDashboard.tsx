@@ -21,8 +21,9 @@ export default function UserDashboard() {
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: FileText },
     { name: 'Job Matching', href: '/dashboard/jobs', icon: Briefcase },
-    { name: 'Career Chat', href: '/dashboard/chat', icon: MessageCircle },
+    { name: 'Career Chat', href: 'chat', icon: MessageCircle },
     { name: 'Profile', href: '/profile', icon: Settings },
+    
   ]
 
   const stats = [

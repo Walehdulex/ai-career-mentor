@@ -1202,7 +1202,9 @@ async def get_current_user(current_user_id: str = Depends(get_current_user_id), 
         )
 
 @app.get("/api/profile")
-async def get_user_profile(current_user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)):
+async def get_user_profile(
+    current_user_id: str = Depends(get_current_user_id), 
+    db: Session = Depends(get_db)):
     """Get user profile information"""
     try:
         profile = db.query(UserProfile).filter(UserProfile.user_id == int(current_user_id)).first()
