@@ -1608,7 +1608,13 @@ async def get_applications(
     db: Session = Depends(get_db)
 ):
     """Get all user applications"""
-    user_id = int(current_user_id)
+    if not current_user_id or current_user_id == 'None':
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    try:
+        user_id = int(current_user_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid user ID")
     
     query = db.query(JobApplication).filter(
         JobApplication.user_id == current_user_id

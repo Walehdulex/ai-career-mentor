@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Briefcase, MapPin, DollarSign, TrendingUp, Star, Bookmark, Filter, Search, X, Check, Building2, Clock, ExternalLink, Loader2 } from 'lucide-react';
+import  { Calendar, FileText, Edit2} from 'lucide-react'
+
 
 interface Job {
   id: number;
@@ -47,9 +49,17 @@ interface JobDetailsModalProps {
   isSaved: boolean;
 }
 
+interface ApplicationStatusModalProps {
+  application: Application | null;
+  onClose: () => void;
+  onUpdate: () => void;
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+
 export default function JobsPage() {
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [activeTab, setActiveTab] = useState('recommended');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -540,6 +550,12 @@ export default function JobsPage() {
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(app.status)}`}>
                     {app.status.charAt(0).toUpperCase() + app.status.slice(1)}
                   </span>
+                  <button
+                    onClick={() => setSelectedApplication(app)}
+                    className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                  >
+                     Update
+                  </button>
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -566,8 +582,20 @@ export default function JobsPage() {
           isSaved={savedJobs.has(selectedJob.id)}
         />
       )}
+      {selectedApplication && (
+        <ApplicationStatusModal
+          application={selectedApplication}
+          onClose={() => setSelectedApplication(null)}
+          onUpdate={() => {
+            fetchApplications();
+            setSelectedApplication(null);
+          }}
+        />
+      )}
     </div>
+
   );
+  
 }
 
 const JobDetailsModal = ({ job, onClose, onApply, onSave, isSaved }: JobDetailsModalProps) => {
@@ -749,7 +777,7 @@ const JobDetailsModal = ({ job, onClose, onApply, onSave, isSaved }: JobDetailsM
               href={job.application_url || '#'}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-6 py-3 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium transition-colors flex items-center gap-2"
+              className="px-6 py-3 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium transition-colors flex items-center gap-2 text-black"
             >
               View on Site
               <ExternalLink className="w-4 h-4" />
@@ -760,3 +788,212 @@ const JobDetailsModal = ({ job, onClose, onApply, onSave, isSaved }: JobDetailsM
     </div>
   );
 };
+
+
+const ApplicationStatusModal = ({ application, onClose, onUpdate }: ApplicationStatusModalProps) => {
+  const [status, setStatus] = useState(application?.status || 'applied');
+  const [notes, setNotes] = useState('');
+  const [interviewDate, setInterviewDate] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+  const statusOptions = [
+    { value: 'applied', label: 'Applied', color: 'bg-blue-100 text-blue-800' },
+    { value: 'screening', label: 'Phone Screening', color: 'bg-purple-100 text-purple-800' },
+    { value: 'interview', label: 'Interview Scheduled', color: 'bg-yellow-100 text-yellow-800' },
+    { value: 'technical', label: 'Technical Round', color: 'bg-orange-100 text-orange-800' },
+    { value: 'final', label: 'Final Round', color: 'bg-indigo-100 text-indigo-800' },
+    { value: 'offer', label: 'Offer Received', color: 'bg-green-100 text-green-800' },
+    { value: 'accepted', label: 'Offer Accepted', color: 'bg-green-200 text-green-900' },
+    { value: 'rejected', label: 'Rejected', color: 'bg-red-100 text-red-800' },
+    { value: 'withdrawn', label: 'Withdrawn', color: 'bg-gray-100 text-gray-800' }
+  ];
+
+  
+  const handleSave = async () => {
+    if (!application) return;
+
+    try {
+      setSaving(true);
+      const response = await fetch(`${API_BASE_URL}/api/applications/${application.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          status: status,
+          notes: notes || undefined,
+          interview_date: interviewDate || undefined
+        })
+      });
+
+      if (response.ok) {
+        onUpdate();
+        onClose();
+      } else {
+        alert('Failed to update application');
+      }
+    } catch (error) {
+      console.error('Error updating application:', error);
+      alert('Error updating application');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!application) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{application.jobTitle}</h2>
+              <p className="text-gray-600">{application.company}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Current Status Display */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Current Status</label>
+            <div className="flex items-center gap-2 mb-4">
+              <span className={`px-3 py-1.5 rounded-full text-sm font-medium ${
+                statusOptions.find(s => s.value === application.status)?.color || 'bg-gray-100 text-gray-800'
+              }`}>
+                {statusOptions.find(s => s.value === application.status)?.label || application.status}
+              </span>
+              <span className="text-sm text-gray-500">Applied on {application.appliedDate}</span>
+            </div>
+          </div>
+
+          {/* Status Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Edit2 className="w-4 h-4 inline mr-1" />
+              Update Status
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {statusOptions.map(option => (
+                <button
+                  key={option.value}
+                  onClick={() => setStatus(option.value)}
+                  className={`px-4 py-3 rounded-lg text-sm font-medium transition-all border-2 ${
+                    status === option.value
+                      ? `${option.color} border-current`
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Interview Date */}
+          {(status === 'interview' || status === 'screening' || status === 'technical' || status === 'final') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Interview Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                value={interviewDate}
+                onChange={(e) => setInterviewDate(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <FileText className="w-4 h-4 inline mr-1" />
+              Notes
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Add notes about the interview, feedback, next steps, etc."
+              rows={4}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Tip: Track interviewer names, questions asked, things to follow up on
+            </p>
+          </div>
+
+          {/* Quick Tips Based on Status */}
+          {status === 'interview' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-900 font-medium mb-1">Interview Tips:</p>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Research the company and role thoroughly</li>
+                <li>• Prepare questions to ask the interviewer</li>
+                <li>• Review your resume and projects</li>
+                <li>• Test your video call setup if remote</li>
+              </ul>
+            </div>
+          )}
+
+          {status === 'offer' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <p className="text-sm text-green-900 font-medium mb-1">Offer Received:</p>
+              <ul className="text-sm text-green-800 space-y-1">
+                <li>• Review salary, benefits, and equity carefully</li>
+                <li>• Ask for time to consider (2-7 days is normal)</li>
+                <li>• Negotiate if the offer is below your expectations</li>
+                <li>• Get everything in writing before accepting</li>
+              </ul>
+            </div>
+          )}
+
+          {status === 'rejected' && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <p className="text-sm text-purple-900 font-medium mb-1">After Rejection:</p>
+              <ul className="text-sm text-purple-800 space-y-1">
+                <li>• Ask for feedback if possible</li>
+                <li>• Keep applying - rejections are normal in job search</li>
+                <li>• Review what went well and what to improve</li>
+                <li>• Stay in touch - they might have future openings</li>
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 text-gray-700 hover:bg-gray-200 rounded-lg font-medium transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-400"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+function fetchApplications() {
+  throw new Error('Function not implemented.');
+}
+
