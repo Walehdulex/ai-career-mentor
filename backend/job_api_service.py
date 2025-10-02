@@ -17,11 +17,11 @@ class JobAPIService:
     def fetch_adzuna_jobs(
         self, 
         query: str, 
-        location: str = "uk",
+        location: str = "gb",
         results_per_page: int = 20,
         page: int = 1
     ) -> List[Dict]:
-        """
+        """  
         Fetch jobs from Adzuna API
         Free tier: 250 calls/month
         Docs: https://developer.adzuna.com/overview
@@ -31,44 +31,71 @@ class JobAPIService:
             return []
         
         try:
+            # Correct Adzuna API URL format
             url = f"https://api.adzuna.com/v1/api/jobs/{location}/search/{page}"
+            
             params = {
                 "app_id": self.adzuna_app_id,
                 "app_key": self.adzuna_api_key,
                 "results_per_page": results_per_page,
-                "what": query,
-                "content-type": "application/json"
+                "what": query
+                # Removed content-type from params
             }
             
-            response = requests.get(url, params=params, timeout=10)
+            print(f"Calling Adzuna: {url}")
+            print(f"Params: {params}")
+            
+            response = requests.get(url, params=params, timeout=30)
+            
+            print(f"Status: {response.status_code}")
+            print(f"Response: {response.text[:200]}")  # First 200 chars
+            
             response.raise_for_status()
             
             data = response.json()
             jobs = []
             
             for job in data.get("results", []):
-                # Parse and standardize job data
+                # Parse job created date properly
+                posted_date = None
+                if job.get("created"):
+                    try:
+                        posted_date = datetime.strptime(job.get("created"), "%Y-%m-%dT%H:%M:%SZ")
+                    except:
+                        try:
+                            # Try alternative format
+                            posted_date = datetime.fromisoformat(job.get("created").replace("Z", "+00:00"))
+                        except:
+                            posted_date = datetime.utcnow()
+                
                 parsed_job = {
                     "title": job.get("title"),
-                    "company_name": job.get("company", {}).get("display_name", "Unknown"),
-                    "location": job.get("location", {}).get("display_name", ""),
+                    "company_name": job.get("company", {}).get("display_name", "Unknown") if isinstance(job.get("company"), dict) else str(job.get("company", "Unknown")),
+                    "location": job.get("location", {}).get("display_name", "") if isinstance(job.get("location"), dict) else str(job.get("location", "")),
                     "description": job.get("description", ""),
                     "salary_min": job.get("salary_min"),
                     "salary_max": job.get("salary_max"),
-                    "external_id": job.get("id"),
+                    "external_id": str(job.get("id", "")),
                     "source": "adzuna",
                     "apply_url": job.get("redirect_url"),
-                    "posted_date": datetime.strptime(job.get("created"), "%Y-%m-%dT%H:%M:%SZ") if job.get("created") else None,
+                    "posted_date": posted_date,
                     "remote_type": self._detect_remote_type(job.get("description", "")),
-                    "employment_type": job.get("contract_type", "full-time"),
+                    "employment_type": str(job.get("contract_type", "full-time")).lower(),
                     "is_active": True
                 }
                 jobs.append(parsed_job)
             
+            print(f"Successfully fetched {len(jobs)} jobs from Adzuna")
             return jobs
             
+        except requests.exceptions.HTTPError as e:
+            print(f"Adzuna HTTP Error: {e}")
+            print(f"Response text: {e.response.text if hasattr(e, 'response') else 'No response'}")
+            return []
         except Exception as e:
             print(f"Error fetching Adzuna jobs: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
     
@@ -172,12 +199,12 @@ class JobAPIService:
         all_jobs = []
         
         # Fetch from Adzuna
-        adzuna_jobs = self.fetch_adzuna_jobs(query, location="uk", results_per_page=min(max_jobs, 20))
+        adzuna_jobs = self.fetch_adzuna_jobs(query, location="gb", results_per_page=min(max_jobs, 20))
         all_jobs.extend(adzuna_jobs)
         
-        # Fetch from JSearch if needed
-        if len(all_jobs) < max_jobs and self.jsearch_api_key:
-            jsearch_jobs = self.fetch_jsearch_jobs(query, location=location)
-            all_jobs.extend(jsearch_jobs[:max_jobs - len(all_jobs)])
+        # # Fetch from JSearch if needed
+        # if len(all_jobs) < max_jobs and self.jsearch_api_key:
+        #     jsearch_jobs = self.fetch_jsearch_jobs(query, location=location)
+        #     all_jobs.extend(jsearch_jobs[:max_jobs - len(all_jobs)])
         
         return all_jobs

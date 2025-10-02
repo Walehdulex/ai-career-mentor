@@ -22,19 +22,28 @@ import tempfile
 from datetime import datetime
 from auth import verify_password, get_password_hash, create_access_token, get_current_user_id
 from typing import Optional
+from job_api_service import JobAPIService
+from job_matching import JobMatchingEngine
+from database import JobPosting, UserJobPreferences, JobApplication, SavedJob, JobMatch
+from typing import List, Optional
+from datetime import datetime, timedelta
+from sqlalchemy import desc, and_, or_
 
 security = HTTPBearer(auto_error=False)
+job_api_service = JobAPIService()
+matching_engine = JobMatchingEngine()
 
 async def get_current_user_optional(
-        credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), 
-        db: Session = Depends(get_db)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), 
+    db: Session = Depends(get_db)
 ) -> Optional[int]:
     if not credentials:
         return None
     try:
         from auth import verify_token
         token_data = verify_token(credentials)
-        return int(token_data.get("sub"))
+        user_id = token_data.get("sub")
+        return int(user_id) 
     except: 
         return None
 
@@ -129,6 +138,102 @@ class ProfileUpdate(BaseModel):
     linkedin_url: str = None
     github_url: str = None
     portfolio_url: str = None
+
+class JobPreferencesCreate(BaseModel):
+    desired_roles: Optional[List[str]] = []
+    preferred_locations: Optional[str] = None  # JSON string
+    remote_preference: str = "flexible"  # remote_only, flexible, onsite
+    minimum_salary: Optional[int] = None
+    maximum_salary: Optional[int] = None
+    preferred_companies: Optional[str] = None  # JSON string
+    company_sizes: Optional[str] = None  # JSON string
+    willing_to_relocate: bool = False
+
+class JobApplicationCreate(BaseModel):
+    job_id: int
+    cover_letter: Optional[str] = None
+    resume_version: Optional[str] = None
+
+class JobApplicationUpdate(BaseModel):
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    interview_date: Optional[str] = None
+
+#Admin route
+@app.get("/api/admin/check-config")
+async def check_api_configuration():
+    """Check if API keys are configured"""
+    return {
+        "adzuna_configured": bool(job_api_service.adzuna_app_id and job_api_service.adzuna_api_key),
+        "jsearch_configured": bool(job_api_service.jsearch_api_key),
+        "adzuna_app_id": job_api_service.adzuna_app_id[:10] + "..." if job_api_service.adzuna_app_id else None,
+        "adzuna_key_length": len(job_api_service.adzuna_api_key) if job_api_service.adzuna_api_key else 0,
+        "jsearch_key_length": len(job_api_service.jsearch_api_key) if job_api_service.jsearch_api_key else 0
+    }
+
+@app.post("/api/admin/populate-jobs")
+async def populate_initial_jobs(db: Session = Depends(get_db)):
+    """Populate database with initial jobs - NO AUTH REQUIRED FOR TESTING"""
+    
+    queries = [
+        "software developer",
+        "frontend developer", 
+        "backend developer",
+        "full stack developer",
+        "python developer"
+    ]
+    
+    total_added = 0
+    total_updated = 0
+    
+    for query in queries:
+        print(f"Fetching jobs for: {query}")
+        jobs_data = job_api_service.fetch_and_store_jobs(query, "United Kingdom", 20)
+        
+        for job_data in jobs_data:
+            existing = db.query(JobPosting).filter(
+                JobPosting.external_id == job_data['external_id']
+            ).first()
+            
+            if not existing:
+                skills = job_api_service.extract_skills_from_description(
+                    job_data.get('description', '')
+                )
+                
+                job = JobPosting(
+                    title=job_data['title'],
+                    company_name=job_data['company_name'],
+                    company_logo_url=job_data.get('company_logo_url'),
+                    location=job_data['location'],
+                    remote_type=job_data['remote_type'],
+                    description=job_data['description'],
+                    requirements=job_data.get('requirements', ''),
+                    salary_min=job_data.get('salary_min'),
+                    salary_max=job_data.get('salary_max'),
+                    salary_currency='GBP',
+                    experience_level='Mid',
+                    employment_type=job_data['employment_type'],
+                    required_skills=skills,
+                    external_id=job_data['external_id'],
+                    source=job_data['source'],
+                    apply_url=job_data.get('apply_url'),
+                    posted_date=job_data.get('posted_date') or datetime.utcnow(),
+                    is_active=True
+                )
+                db.add(job)
+                total_added += 1
+            else:
+                total_updated += 1
+        
+        db.commit()
+        print(f"  Added: {total_added}, Updated: {total_updated}")
+    
+    return {
+        "status": "success",
+        "jobs_added": total_added,
+        "jobs_updated": total_updated,
+        "total": total_added + total_updated
+    }    
 
 @app.get("/")
 async def root():
@@ -1035,7 +1140,9 @@ async def login_user(login_data: UserLogin, db: Session = Depends(get_db)):
             )
         
         # Create access token
-        access_token = create_access_token(data={"sub": str(user.id)})
+        access_token = create_access_token(
+            data={"user_id": user.id}
+        )
         
         return {
             "access_token": access_token,
@@ -1165,6 +1272,588 @@ async def update_user_profile(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating profile: {str(e)}"
         )
+    
+@app.post("/api/jobs/fetch")
+async def fetch_jobs_from_apis(
+    query: str,
+    location: str = "United Kingdom",
+    max_jobs: int = 50,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Fetch jobs from external APIs and store in database"""
+    
+    # Fetch jobs from all sources
+    jobs_data = job_api_service.fetch_and_store_jobs(query, location, max_jobs)
+    
+    added_count = 0
+    updated_count = 0
+    
+    for job_data in jobs_data:
+        # Check if job already exists
+        existing = db.query(JobPosting).filter(
+            JobPosting.external_id == job_data['external_id']
+        ).first()
+        
+        if existing:
+            # Update existing job
+            for key, value in job_data.items():
+                setattr(existing, key, value)
+            existing.updated_at = datetime.utcnow()
+            updated_count += 1
+        else:
+            # Create new job posting
+            # Extract skills from description
+            skills = job_api_service.extract_skills_from_description(
+                job_data.get('description', '')
+            )
+            
+            job = JobPosting(
+                title=job_data['title'],
+                company_name=job_data['company_name'],
+                company_logo_url=job_data.get('company_logo_url'),
+                location=job_data['location'],
+                remote_type=job_data['remote_type'],
+                description=job_data['description'],
+                requirements=job_data.get('requirements', ''),
+                salary_min=job_data.get('salary_min'),
+                salary_max=job_data.get('salary_max'),
+                salary_currency=job_data.get('salary_currency', 'GBP'),
+                experience_level=job_data.get('experience_level', 'Mid'),
+                employment_type=job_data.get('employment_type', 'full-time'),
+                required_skills=skills,
+                external_id=job_data['external_id'],
+                source=job_data['source'],
+                apply_url=job_data.get('apply_url'),
+                posted_date=job_data.get('posted_date') or datetime.utcnow(),
+                is_active=True
+            )
+            db.add(job)
+            added_count += 1
+    
+    db.commit()
+    
+    return {
+        "status": "success",
+        "jobs_added": added_count,
+        "jobs_updated": updated_count,
+        "total_fetched": len(jobs_data)
+    }
+
+
+@app.post("/api/job-preferences")
+async def create_or_update_job_preferences(
+    preferences: JobPreferencesCreate,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Create or update user job preferences"""
+    
+    existing = db.query(UserJobPreferences).filter(
+        UserJobPreferences.user_id == current_user_id
+    ).first()
+    
+    if existing:
+        # Update existing preferences
+        for key, value in preferences.dict(exclude_unset=True).items():
+            setattr(existing, key, value)
+        existing.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        return {
+            "status": "updated",
+            "preferences": existing
+        }
+    else:
+        # Create new preferences
+        new_preferences = UserJobPreferences(
+            user_id=current_user_id,
+            **preferences.dict()
+        )
+        db.add(new_preferences)
+        db.commit()
+        db.refresh(new_preferences)
+        return {
+            "status": "created",
+            "preferences": new_preferences
+        }
+    
+@app.get("/api/job-preferences")
+async def get_job_preferences(
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Get user job preferences"""
+    
+    preferences = db.query(UserJobPreferences).filter(
+        UserJobPreferences.user_id == current_user_id
+    ).first()
+    
+    if not preferences:
+        # Return default preferences
+        return {
+            "desired_roles": [],
+            "remote_preference": "flexible",
+            "willing_to_relocate": False
+        }
+    
+    return preferences
+
+@app.get("/api/jobs/recommendations")
+async def get_job_recommendations(
+    limit: int = 20,
+    min_score: float = 0.0,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Get personalized job recommendations with match scores"""
+    
+    # Find matching jobs using the matching engine
+    matches = matching_engine.find_matching_jobs(
+        current_user_id, 
+        db, 
+        limit=limit,
+        min_score=min_score
+    )
+    
+    recommendations = []
+    
+    for job, scores in matches:
+        # Check if already saved
+        is_saved = db.query(SavedJob).filter(
+            and_(
+                SavedJob.user_id == current_user_id,
+                SavedJob.job_id == job.id
+            )
+        ).first() is not None
+        
+        # Check if already applied
+        has_applied = db.query(JobApplication).filter(
+            and_(
+                JobApplication.user_id == current_user_id,
+                JobApplication.job_id == job.id
+            )
+        ).first() is not None
+        
+        recommendations.append({
+            "job": {
+                "id": job.id,
+                "title": job.title,
+                "company_name": job.company_name,
+                "company_logo_url": job.company_logo_url,
+                "location": job.location,
+                "remote_type": job.remote_type,
+                "salary_min": job.salary_min,
+                "salary_max": job.salary_max,
+                "experience_level": job.experience_level,
+                "employment_type": job.employment_type,
+                "description": job.description,
+                "required_skills": job.required_skills,
+                "company_size": job.company_size,
+                "industry": job.industry,
+                "posted_date": job.posted_date.isoformat() if job.posted_date else None,
+                "is_saved": is_saved,
+                "has_applied": has_applied
+            },
+            "match_score": round(scores['overall_score'], 1),
+            "scores": {
+                "skills": round(scores['skills_score'], 1),
+                "experience": round(scores['experience_score'], 1),
+                "location": round(scores['location_score'], 1),
+                "salary": round(scores['salary_score'], 1),
+                "company": round(scores['company_score'], 1)
+            }
+        })
+    
+    return {"recommendations": recommendations}
+
+@app.post("/api/jobs/{job_id}/save")
+async def save_job(
+    job_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Save a job for later"""
+    
+    # Verify job exists
+    job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Check if already saved
+    existing = db.query(SavedJob).filter(
+        and_(
+            SavedJob.user_id == current_user_id,
+            SavedJob.job_id == job_id
+        )
+    ).first()
+    
+    if existing:
+        return {"message": "Job already saved", "saved": True}
+    
+    # Create saved job
+    saved_job = SavedJob(
+        user_id=current_user_id,
+        job_id=job_id
+    )
+    db.add(saved_job)
+    db.commit()
+    
+    return {"message": "Job saved successfully", "saved": True}
+
+@app.delete("/api/jobs/{job_id}/unsave")
+async def unsave_job(
+    job_id: int,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Remove a saved job"""
+    
+    saved_job = db.query(SavedJob).filter(
+        and_(
+            SavedJob.user_id == current_user_id,
+            SavedJob.job_id == job_id
+        )
+    ).first()
+    
+    if not saved_job:
+        raise HTTPException(status_code=404, detail="Saved job not found")
+    
+    db.delete(saved_job)
+    db.commit()
+    
+    return {"message": "Job removed from saved", "saved": False}
+
+@app.get("/api/jobs/saved")
+async def get_saved_jobs(
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Get all saved jobs"""
+    
+    saved_jobs = db.query(SavedJob).filter(
+        SavedJob.user_id == current_user_id
+    ).order_by(desc(SavedJob.saved_at)).all()
+    
+    result = []
+    for saved in saved_jobs:
+        job = db.query(JobPosting).filter(JobPosting.id == saved.job_id).first()
+        if job and job.is_active:
+            result.append({
+                "id": job.id,
+                "title": job.title,
+                "company_name": job.company_name,
+                "location": job.location,
+                "remote_type": job.remote_type,
+                "salary_min": job.salary_min,
+                "salary_max": job.salary_max,
+                "saved_at": saved.saved_at.isoformat()
+            })
+    
+    return {"saved_jobs": result}
+
+@app.post("/api/applications")
+async def create_application(
+    application: JobApplicationCreate,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Submit a job application"""
+    
+    # Verify job exists
+    job = db.query(JobPosting).filter(JobPosting.id == application.job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Check if already applied
+    existing = db.query(JobApplication).filter(
+        and_(
+            JobApplication.user_id == current_user_id,
+            JobApplication.job_id == application.job_id
+        )
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="You have already applied to this job"
+        )
+    
+    # Create application
+    new_application = JobApplication(
+        user_id=current_user_id,
+        job_id=application.job_id,
+        cover_letter_used=application.cover_letter,
+        resume_version_used=application.resume_version,
+        status="applied",
+        applied_date=datetime.utcnow()
+    )
+
+    db.add(new_application)
+    db.commit()
+    db.refresh(new_application)
+    
+    return {
+        "message": "Application submitted successfully",
+        "application_id": new_application.id,
+        "status": "applied"
+    }
+
+@app.get("/api/applications")
+async def get_applications(
+    status: Optional[str] = None,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Get all user applications"""
+    user_id = int(current_user_id)
+    
+    query = db.query(JobApplication).filter(
+        JobApplication.user_id == current_user_id
+    )
+    
+    if status:
+        query = query.filter(JobApplication.status == status)
+    
+    applications = query.order_by(desc(JobApplication.applied_date)).all()
+    
+    result = []
+    for app in applications:
+        job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+        if job:
+            # Build next step message based on what fields exist
+            next_step = "Awaiting response"
+            if hasattr(app, 'user_notes') and app.user_notes:
+                next_step = app.user_notes
+            elif hasattr(app, 'interview_scheduled') and app.interview_scheduled:
+                next_step = f"Interview scheduled for {app.interview_scheduled.strftime('%Y-%m-%d')}"
+            
+            result.append({
+                "id": app.id,
+                "jobTitle": job.title,
+                "company": job.company_name,
+                "status": app.status,
+                "appliedDate": app.applied_date.strftime("%Y-%m-%d"),
+                "nextStep": next_step,
+                "interview_date": app.interview_scheduled.isoformat() if hasattr(app, 'interview_scheduled') and app.interview_scheduled else None
+            })
+    
+    return result
+
+@app.patch("/api/applications/{application_id}")
+async def update_application(
+    application_id: int,
+    update: JobApplicationUpdate,
+    current_user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Update application status and notes"""
+    
+    application = db.query(JobApplication).filter(
+        and_(
+            JobApplication.id == application_id,
+            JobApplication.user_id == current_user_id
+        )
+    ).first()
+    
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    # Update fields
+    if update.status:
+        application.status = update.status
+    if update.notes:
+        application.notes = update.notes
+    if update.interview_date:
+        application.interview_date = datetime.fromisoformat(update.interview_date)
+    
+    application.updated_at = datetime.utcnow()
+    db.commit()
+    
+    return {
+        "message": "Application updated successfully",
+        "status": application.status
+    }
+
+@app.get("/api/jobs/search")
+async def search_jobs(
+    query: Optional[str] = None,
+    location: Optional[str] = None,
+    remote_type: Optional[str] = None,
+    min_salary: Optional[int] = None,
+    experience_level: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """Search jobs with filters"""
+    
+    job_query = db.query(JobPosting).filter(JobPosting.is_active == True)
+    
+    if query:
+        job_query = job_query.filter(
+            or_(
+                JobPosting.title.ilike(f"%{query}%"),
+                JobPosting.company_name.ilike(f"%{query}%"),
+                JobPosting.description.ilike(f"%{query}%")
+            )
+        )
+    
+    if location:
+        job_query = job_query.filter(
+            JobPosting.location.ilike(f"%{location}%")
+        )
+    
+    if remote_type:
+        job_query = job_query.filter(JobPosting.remote_type == remote_type)
+    
+    if min_salary:
+        job_query = job_query.filter(JobPosting.salary_max >= min_salary)
+    
+    if experience_level:
+        job_query = job_query.filter(
+            JobPosting.experience_level == experience_level
+        )
+    
+    total = job_query.count()
+    jobs = job_query.order_by(desc(JobPosting.posted_date)).offset(skip).limit(limit).all()
+    
+    return {
+        "jobs": jobs,
+        "total": total,
+        "page": skip // limit + 1,
+        "pages": (total + limit - 1) // limit
+    }
+
+@app.get("/api/jobs/{job_id}")
+async def get_job_details(
+    job_id: int,
+    db: Session = Depends(get_db)
+):
+    """Get detailed job information"""
+    
+    job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    return job
+
+
+#Debugging below this line    
+
+@app.get("/api/admin/test-adzuna")
+async def test_adzuna_direct():
+    """Test Adzuna API with direct call"""
+    import requests
+    
+    app_id = os.getenv("ADZUNA_APP_ID")
+    app_key = os.getenv("ADZUNA_API_KEY")
+    
+    # Test with simple search
+    url = "https://api.adzuna.com/v1/api/jobs/gb/search/1"
+    
+    params = {
+        "app_id": app_id,
+        "app_key": app_key,
+        "results_per_page": 5,
+        "what": "developer"
+    }
+    
+    try:
+        print(f"Testing URL: {url}")
+        print(f"With params: {params}")
+        
+        response = requests.get(url, params=params, timeout=30)
+        
+        return {
+            "status_code": response.status_code,
+            "url": response.url,
+            "response_preview": response.text[:500],
+            "success": response.status_code == 200,
+            "jobs_found": len(response.json().get("results", [])) if response.status_code == 200 else 0
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+
+@app.get("/api/admin/check-jobs")
+async def check_jobs_in_database(db: Session = Depends(get_db)):
+    """Check how many jobs are in the database"""
+    total_jobs = db.query(JobPosting).count()
+    active_jobs = db.query(JobPosting).filter(JobPosting.is_active == True).count()
+    mock_jobs = db.query(JobPosting).filter(JobPosting.source == "mock").count()
+    adzuna_jobs = db.query(JobPosting).filter(JobPosting.source == "adzuna").count()
+    
+    # Get sample jobs
+    sample_jobs = db.query(JobPosting).limit(5).all()
+    
+    return {
+        "total_jobs": total_jobs,
+        "active_jobs": active_jobs,
+        "mock_jobs": mock_jobs,
+        "adzuna_jobs": adzuna_jobs,
+        "sample_jobs": [
+            {
+                "id": job.id,
+                "title": job.title,
+                "company": job.company_name,
+                "source": job.source,
+                "skills": job.required_skills
+            }
+            for job in sample_jobs
+        ]
+    }
+
+@app.get("/api/admin/debug-matching/{user_id}")
+async def debug_matching(user_id: int, db: Session = Depends(get_db)):
+    """Debug matching for a specific user"""
+    user = db.query(User).filter(User.id == user_id).first()
+    user_profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+    user_preferences = db.query(UserJobPreferences).filter(UserJobPreferences.user_id == user_id).first()
+    
+    # Get all jobs
+    all_jobs = db.query(JobPosting).filter(JobPosting.is_active == True).all()
+    
+    # Try to get matches
+    try:
+        matches = matching_engine.find_matching_jobs(user_id, db, limit=20, min_score=0)
+        match_count = len(matches)
+        sample_match = matches[0] if matches else None
+    except Exception as e:
+        match_count = 0
+        sample_match = str(e)
+    
+    return {
+        "user_id": user_id,
+        "user_exists": user is not None,
+        "profile_exists": user_profile is not None,
+        "preferences_exists": user_preferences is not None,
+        "total_active_jobs": len(all_jobs),
+        "matches_found": match_count,
+        "sample_match_score": sample_match[1]['overall_score'] if sample_match and isinstance(sample_match, tuple) else None,
+        "error": sample_match if isinstance(sample_match, str) else None,
+        "profile_data": {
+            "skills": user_profile.technical_skills if user_profile else None,
+            "experience": user_profile.experience_level if user_profile else None
+        },
+        "preferences_data": {
+            "remote": user_preferences.remote_preference if user_preferences else None,
+            "salary": user_preferences.minimum_salary if user_preferences else None
+        } if user_preferences else None
+    }
+
+# @app.get("/api/debug/check-auth")
+# async def check_auth(authorization: Optional[str] = Header(None)):
+#     """Debug authentication"""
+#     return {
+#         "authorization_header": authorization,
+#         "has_bearer": "Bearer" in (authorization or ""),
+#         "token_preview": authorization[:50] if authorization else None
+#     }
+
 
 if __name__ == "__main__":
     import uvicorn

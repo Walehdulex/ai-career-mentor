@@ -88,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(access_token)
       setUser(userData)
       localStorage.setItem('auth_token', access_token)
+      localStorage.setItem('token', access_token) 
 
       return { success: true }
     } catch (error: any) {
@@ -111,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(access_token)
       setUser(userData)
       localStorage.setItem('auth_token', access_token)
+      localStorage.setItem('token', access_token) 
 
       return { success: true }
     } catch (error: any) {
@@ -123,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     setToken(null)
     localStorage.removeItem('auth_token')
+    localStorage.removeItem('token') 
   }
 
   const refreshUser = async () => {
