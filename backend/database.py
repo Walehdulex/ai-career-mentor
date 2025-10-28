@@ -387,7 +387,20 @@ class JobAlert(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationship
-    user = relationship("User")            
+    user = relationship("User")   
+
+class Resume(Base):
+    __tablename__ = "resumes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    title = Column(String)
+    file_name = Column(String)
+    file_path = Column(String)
+    is_default = Column(Boolean, default=False)
+    upload_date = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User")         
 
 # Creating Tables
 def create_tables():

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, status 
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, status 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from dotenv import load_dotenv
 from enhanced_resume_parser import EnhancedResumeParser
-from database import create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity
+from database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity
 from sqlalchemy.orm import Session
 from docx import Document
 from docx.shared import Inches, Pt
@@ -71,6 +71,10 @@ resume_parser = EnhancedResumeParser()
 #Creating Uploads directory
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+# Create uploads directory
+UPLOAD_DIR = "uploads/resumes"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 class ChatMessageSchema(BaseModel):
     message: str
@@ -1455,6 +1459,7 @@ async def get_job_recommendations(
                 "industry": job.industry,
                 "posted_date": job.posted_date.isoformat() if job.posted_date else None,
                 "is_saved": is_saved,
+                "apply_url": job.apply_url,
                 "has_applied": has_applied
             },
             "match_score": round(scores['overall_score'], 1),
@@ -1747,6 +1752,127 @@ async def get_job_details(
     
     return job
 
+@app.get("/api/resumes")
+async def get_resumes(
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Get all user resumes"""
+    user_id = int(current_user_id)
+    
+    resumes = db.query(Resume).filter(Resume.user_id == user_id).all()
+    
+    return [
+        {
+            "id": resume.id,
+            "title": resume.title,
+            "fileName": resume.file_name,
+            "uploadDate": resume.upload_date.isoformat(),
+            "isDefault": resume.is_default
+        }
+        for resume in resumes
+    ]
+
+@app.post("/api/resumes/upload")
+async def upload_resume(
+    file: UploadFile = File(...),
+    title: str = Form(...),
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Upload a new resume"""
+    user_id = int(current_user_id)
+    
+    # Save file
+    file_name = f"{user_id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, file_name)
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Create database record
+    resume = Resume(
+        user_id=user_id,
+        title=title,
+        file_name=file.filename,
+        file_path=file_path,
+        is_default=False
+    )
+    db.add(resume)
+    db.commit()
+    
+    return {"message": "Resume uploaded successfully", "id": resume.id}
+
+@app.patch("/api/resumes/{resume_id}/set-default")
+async def set_default_resume(
+    resume_id: int,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Set a resume as default"""
+    user_id = int(current_user_id)
+    
+    # Remove default from all user resumes
+    db.query(Resume).filter(Resume.user_id == user_id).update({"is_default": False})
+    
+    # Set new default
+    resume = db.query(Resume).filter(
+        Resume.id == resume_id,
+        Resume.user_id == user_id
+    ).first()
+    
+    if resume:
+        resume.is_default = True
+        db.commit()
+    
+    return {"message": "Default resume updated"}
+
+@app.delete("/api/resumes/{resume_id}")
+async def delete_resume(
+    resume_id: int,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Delete a resume"""
+    user_id = int(current_user_id)
+    
+    resume = db.query(Resume).filter(
+        Resume.id == resume_id,
+        Resume.user_id == user_id
+    ).first()
+    
+    if resume:
+        # Delete file
+        if os.path.exists(resume.file_path):
+            os.remove(resume.file_path)
+        
+        # Delete database record
+        db.delete(resume)
+        db.commit()
+    
+    return {"message": "Resume deleted"}
+
+@app.get("/api/resumes/{resume_id}/download")
+async def download_resume(
+    resume_id: int,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Download a resume"""
+    from fastapi.responses import FileResponse
+    
+    user_id = int(current_user_id)
+    
+    resume = db.query(Resume).filter(
+        Resume.id == resume_id,
+        Resume.user_id == user_id
+    ).first()
+    
+    if not resume or not os.path.exists(resume.file_path):
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    return FileResponse(resume.file_path, filename=resume.file_name)
+
 
 #Debugging below this line    
 
@@ -1852,6 +1978,8 @@ async def debug_matching(user_id: int, db: Session = Depends(get_db)):
             "salary": user_preferences.minimum_salary if user_preferences else None
         } if user_preferences else None
     }
+
+
 
 # @app.get("/api/debug/check-auth")
 # async def check_auth(authorization: Optional[str] = Header(None)):
