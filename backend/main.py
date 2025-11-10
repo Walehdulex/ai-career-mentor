@@ -1,3 +1,4 @@
+import traceback
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, status 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -32,6 +33,8 @@ from sqlalchemy import desc, and_, or_
 security = HTTPBearer(auto_error=False)
 job_api_service = JobAPIService()
 matching_engine = JobMatchingEngine()
+
+
 
 async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), 
@@ -407,8 +410,12 @@ async def upload_resume(file: UploadFile = File(...)):
         if not file.filename.lower().endswith(('.pdf', '.docx')):
             raise HTTPException(status_code=400, detail="Only PDF and DOCX files are supported")
         
+        # Create uploads directory if it doesn't exist
+        upload_dir = Path("uploads")
+        upload_dir.mkdir(exist_ok=True)
+        
         # Saving uploaded file
-        file_path = UPLOAD_DIR / file.filename
+        file_path = upload_dir / file.filename
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         
@@ -429,8 +436,11 @@ async def upload_resume(file: UploadFile = File(...)):
         }
     except Exception as e:
         # Cleaning up file if it exists
-        if file_path.exists():
-            os.remove(file_path)
+        try:
+            if 'file_path' in locals() and Path(file_path).exists():
+                os.remove(file_path)
+        except:
+            pass
         raise HTTPException(status_code=500, detail=f"Error processing resume: {str(e)}")
     
 @app.post("/api/analyze-resume")
