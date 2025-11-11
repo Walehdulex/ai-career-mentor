@@ -1,15 +1,16 @@
 import traceback
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, status 
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, APIRouter, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
+from pydantic import BaseModel, EmailStr
 from openai import OpenAI
 import os
 import shutil
 import json
 import uuid
 from pathlib import Path
+from passlib.context import CryptContext
 from dotenv import load_dotenv
 from enhanced_resume_parser import EnhancedResumeParser
 from database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity
@@ -29,6 +30,9 @@ from database import JobPosting, UserJobPreferences, JobApplication, SavedJob, J
 from typing import List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import desc, and_, or_
+from database import get_db
+
+
 
 security = HTTPBearer(auto_error=False)
 job_api_service = JobAPIService()
@@ -115,6 +119,7 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+
 class UserResponse(BaseModel):
     id:int
     username: str
@@ -128,11 +133,16 @@ class UserResponse(BaseModel):
     optimizations_count: int
     chat_messages_count: int
 
+    class Config:
+        from_attributes = True
+
 class ProfileUpdate(BaseModel):
-    current_title: str = None
+    current_role: str = None
     experience_level: str = None
     industry: str = None
     location: str = None
+    years_of_experience: Optional[int] = None
+    career_goals: Optional[str] = None
     salary_range: str = None
     technical_skills: list = None
     soft_skills: list = None
@@ -165,6 +175,19 @@ class JobApplicationUpdate(BaseModel):
     status: Optional[str] = None
     notes: Optional[str] = None
     interview_date: Optional[str] = None
+
+
+
+class ProfileResponse(BaseModel):
+    current_role: Optional[str] = None
+    industry: Optional[str] = None
+    years_of_experience: Optional[int] = None
+    career_goals: Optional[str] = None
+    location: Optional[str] = None
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 #Admin route
 @app.get("/api/admin/check-config")
@@ -1263,31 +1286,74 @@ async def update_user_profile(
 ):
     """Update user profile information"""
     try:
-        profile = db.query(UserProfile).filter(UserProfile.user_id == int(current_user_id)).first()
+        print(f"Updating profile for user: {current_user_id}")
+        
+        profile = db.query(UserProfile).filter(
+            UserProfile.user_id == int(current_user_id)
+        ).first()
+        
         if not profile:
-            profile = UserProfile(user_id=int(current_user_id))
+            # Create new profile if doesn't exist
+            profile = UserProfile(
+                user_id=int(current_user_id),
+                created_at=datetime.utcnow()
+            )
             db.add(profile)
         
-        # Update profile fields
-        update_data = profile_data.dict(exclude_unset=True)
+        # Update simple fields directly
+        if profile_data.current_role is not None:
+            profile.current_role = profile_data.current_role
+        if profile_data.industry is not None:
+            profile.industry = profile_data.industry
+        if profile_data.years_of_experience is not None:
+            profile.years_of_experience = profile_data.years_of_experience
+        if profile_data.career_goals is not None:
+            profile.career_goals = profile_data.career_goals
+        if profile_data.location is not None:
+            profile.location = profile_data.location
         
-        for field, value in update_data.items():
-            if field in ['technical_skills', 'soft_skills', 'certifications', 'languages', 
-                        'preferred_roles', 'preferred_companies'] and value is not None:
-                setattr(profile, field, json.dumps(value))
-            elif value is not None:
-                setattr(profile, field, value)
+        profile.updated_at = datetime.utcnow()
         
         db.commit()
         db.refresh(profile)
         
-        return {"message": "Profile updated successfully"}
+        print(f"Profile updated successfully!")
+        
+        return {
+            "current_role": profile.current_role,
+            "industry": profile.industry,
+            "years_of_experience": profile.years_of_experience,
+            "career_goals": profile.career_goals,
+            "location": profile.location,
+            "updated_at": profile.updated_at
+        }
         
     except Exception as e:
+        db.rollback()
+        print(f"Error updating profile: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating profile: {str(e)}"
         )
+    
+@app.patch("/api/profile")
+async def patch_user_profile(
+    profile_data: ProfileUpdate,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Partially update user profile (PATCH method)"""
+    return await update_user_profile(profile_data, current_user_id, db)
+
+@app.patch("/api/auth/profile")
+async def patch_auth_user_profile(
+    profile_data: ProfileUpdate,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Partially update user profile (alternative endpoint)"""
+    print(f"PATCH /api/auth/profile called for user: {current_user_id}")
+    return await update_user_profile(profile_data, current_user_id, db)
     
 @app.post("/api/jobs/fetch")
 async def fetch_jobs_from_apis(
@@ -1988,6 +2054,9 @@ async def debug_matching(user_id: int, db: Session = Depends(get_db)):
             "salary": user_preferences.minimum_salary if user_preferences else None
         } if user_preferences else None
     }
+
+
+
 
 
 

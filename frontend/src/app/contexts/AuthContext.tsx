@@ -3,7 +3,6 @@
 import React, {createContext, useContext, useState, useEffect}  from "react"
 import axios from "axios"
 
-
 interface User {
   id: number
   username: string
@@ -18,8 +17,29 @@ interface User {
   chat_messages_count?: number
 }
 
+interface UserProfile {
+  id: number
+  username: string
+  email: string
+  full_name: string
+  role: string
+  is_active: boolean
+  created_at: string
+  current_role?: string
+  industry?: string
+  years_of_experience?: number
+  career_goals?: string
+  location?: string
+  resume_analyses_count?: number
+  cover_letters_count?: number
+  optimizations_count?: number
+  chat_messages_count?: number
+}
+
 interface AuthContextType {
   user: User | null
+  userProfile: UserProfile | null
+  updateProfile: (profileData: Partial<UserProfile>) => Promise<void>
   token: string | null
   isLoading: boolean
   login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>
@@ -32,6 +52,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -62,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             headers: { Authorization: `Bearer ${savedToken}` }
           })
           setUser(response.data)
+          setUserProfile(response.data)
         }
       } catch (error) {
         console.error('Error loading auth:', error)
@@ -87,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setToken(access_token)
       setUser(userData)
+      setUserProfile(userData)
       localStorage.setItem('auth_token', access_token)
       localStorage.setItem('token', access_token) 
 
@@ -111,6 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setToken(access_token)
       setUser(userData)
+      setUserProfile(userData)
       localStorage.setItem('auth_token', access_token)
       localStorage.setItem('token', access_token) 
 
@@ -123,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null)
+    setUserProfile(null)
     setToken(null)
     localStorage.removeItem('auth_token')
     localStorage.removeItem('token') 
@@ -134,13 +159,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await axios.get('http://localhost:8000/api/auth/me')
       setUser(response.data)
+      setUserProfile(response.data)
     } catch (error) {
       console.error('Error refreshing user:', error)
     }
   }
 
+  const updateProfile = async (profileData: Partial<UserProfile>) => {
+    if (!token) {
+      throw new Error('Not authenticated')
+    }
+
+    try {
+      const response = await axios.patch(
+        'http://localhost:8000/api/auth/profile',
+        profileData
+      )
+      
+      setUserProfile(response.data)
+      // Also update user if the response includes user data
+      if (response.data) {
+        setUser(prev => prev ? { ...prev, ...response.data } : null)
+      }
+    } catch (error: any) {
+      console.error('Error updating profile:', error)
+      throw new Error(error.response?.data?.detail || 'Failed to update profile')
+    }
+  }
+
   const value = {
     user,
+    userProfile,
+    updateProfile,
     token,
     isLoading,
     login,
@@ -163,4 +213,3 @@ export function useAuth() {
   }
   return context
 }
-
