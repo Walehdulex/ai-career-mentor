@@ -7,7 +7,10 @@ import { useRouter } from 'next/navigation'
 interface AuthFormsProps {
   initialMode?: 'login' | 'register'
   onSuccess?: () => void
+  onSwitchToRegister?: () => void
+  onSwitchToLogin?: () => void
 }
+
 
 export default function AuthForms({ initialMode = 'login', onSuccess }: AuthFormsProps) {
   const [mode, setMode] = useState<'login' | 'register'>(initialMode)
@@ -235,5 +238,15 @@ export default function AuthForms({ initialMode = 'login', onSuccess }: AuthForm
         </form>
       </div>
     </div>
-  )
-}
+    )
+  }
+
+  
+
+  export function LoginForm(props: Omit<AuthFormsProps, 'initialMode'>) {
+    return <AuthForms {...props} initialMode="login" />
+  }
+
+  export function RegisterForm(props: Omit<AuthFormsProps, 'initialMode'>) {
+    return <AuthForms {...props} initialMode="register" />
+  }

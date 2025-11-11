@@ -3,6 +3,7 @@
 import { useAuth } from '../contexts/AuthContext'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Header } from './layout/Header'
 import {
   Briefcase,
   FileText,
@@ -12,8 +13,9 @@ import {
   Mic,
 } from 'lucide-react'
 
-export default function UserDashboard() {
-  const { user, logout } = useAuth()
+export default function UserDashboard() 
+{
+  const { user } = useAuth()
   const pathname = usePathname()
 
   if (!user) return null
@@ -21,9 +23,8 @@ export default function UserDashboard() {
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: FileText },
     { name: 'Job Matching', href: '/dashboard/jobs', icon: Briefcase },
-    { name: 'Career Chat', href: 'chat', icon: MessageCircle },
+    { name: 'Career Chat', href: '/chat', icon: MessageCircle },
     { name: 'Profile', href: '/profile', icon: Settings },
-    
   ]
 
   const stats = [
@@ -85,168 +86,150 @@ export default function UserDashboard() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r shadow-sm p-4">
-        <h2 className="text-lg font-bold text-gray-900 mb-6">My Dashboard</h2>
-        <nav className="space-y-2">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href
-            const Icon = item.icon
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${isActive
-                    ? 'bg-gray-200 text-gray-900'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span>{item.name}</span>
-              </Link>
-            )
-          })}
-        </nav>
-      </aside>
-
-      {/* Main content */}
-      <div className="flex-1">
-        {/* Header */}
-        <div className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Welcome back, {user.full_name}!
-                </h1>
-                <p className="text-gray-600">
-                  Role:{' '}
-                  {user.role
-                    .replace('_', ' ')
-                    .replace(/\b\w/g, (l) => l.toUpperCase())}{' '}
-                  | Member since{' '}
-                  {new Date(user.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <div className="flex items-center space-x-4">
+    <div className="min-h-screen bg-gray-50">
+      {/* Add Header component at the top */}
+      <Header />
+      
+      <div className="flex">
+        {/* Sidebar */}
+        <aside className="w-64 bg-white border-r shadow-sm p-4 min-h-[calc(100vh-64px)]">
+          <h2 className="text-lg font-bold text-gray-900 mb-6">My Dashboard</h2>
+          <nav className="space-y-2">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href
+              const Icon = item.icon
+              return (
                 <Link
-                  href="/profile"
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                  key={item.name}
+                  href={item.href}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors
+                    ${isActive
+                      ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
                 >
-                  Edit Profile
+                  <Icon className="w-5 h-5" />
+                  <span>{item.name}</span>
                 </Link>
-                <button
-                  onClick={logout}
-                  className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  Logout
-                </button>
-              </div>
+              )
+            })}
+          </nav>
+        </aside>
+
+        {/* Main content */}
+        <div className="flex-1">
+          {/* Welcome Banner */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-sm">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+              <h1 className="text-3xl font-bold mb-2">
+                Welcome back, {user.full_name}! 👋
+              </h1>
+              <p className="text-blue-100">
+                Member since {new Date(user.created_at).toLocaleDateString()}
+              </p>
             </div>
           </div>
-        </div>
 
-        {/* Main Dashboard Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat) => (
-              <div
-                key={stat.name}
-                className="bg-white rounded-lg shadow-sm border p-6"
-              >
-                <div className="flex items-center">
-                  <div
-                    className={`${stat.color} w-12 h-12 rounded-lg flex items-center justify-center`}
-                  >
-                    {stat.icon}
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
-                      {stat.name}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {stat.value}
-                    </p>
+          {/* Main Dashboard Content */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {stats.map((stat) => (
+                <div
+                  key={stat.name}
+                  className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-center">
+                    <div
+                      className={`${stat.color} w-12 h-12 rounded-lg flex items-center justify-center`}
+                    >
+                      {stat.icon}
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-600">
+                        {stat.name}
+                      </p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {stat.value}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Quick Actions */}
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">
-              Quick Actions
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {quickActions.map((action) => (
-                <Link
-                  key={action.title}
-                  href={action.href}
-                  className="group bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow"
-                >
-                  <div
-                    className={`${action.color} w-12 h-12 rounded-lg flex items-center justify-center text-white mb-4 group-hover:scale-105 transition-transform`}
-                  >
-                    {action.icon}
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    {action.title}
-                  </h3>
-                  <p className="text-sm text-gray-600">{action.description}</p>
-                </Link>
               ))}
             </div>
-          </div>
 
-          {/* Recent Activity */}
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Recent Activity
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-blue-600" />
-                </div>
-                <div className="ml-4 flex-1">
-                  <p className="font-medium text-gray-900">
-                    Resume analysis completed
-                  </p>
-                  <p className="text-sm text-gray-600">2 hours ago</p>
-                </div>
+            {/* Quick Actions */}
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">
+                Quick Actions
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {quickActions.map((action) => (
+                  <Link
+                    key={action.title}
+                    href={action.href}
+                    className="group bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-all"
+                  >
+                    <div
+                      className={`${action.color} w-12 h-12 rounded-lg flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform`}
+                    >
+                      {action.icon}
+                    </div>
+                    <h3 className="font-semibold text-gray-900 mb-2">
+                      {action.title}
+                    </h3>
+                    <p className="text-sm text-gray-600">{action.description}</p>
+                  </Link>
+                ))}
               </div>
+            </div>
 
-              <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <MessageCircle className="w-5 h-5 text-green-600" />
+            {/* Recent Activity */}
+            <div className="bg-white rounded-lg shadow-sm border p-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Recent Activity
+              </h2>
+              <div className="space-y-4">
+                <div className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <p className="font-medium text-gray-900">
+                      Resume analysis completed
+                    </p>
+                    <p className="text-sm text-gray-600">2 hours ago</p>
+                  </div>
                 </div>
-                <div className="ml-4 flex-1">
-                  <p className="font-medium text-gray-900">
-                    Career chat session
-                  </p>
-                  <p className="text-sm text-gray-600">1 day ago</p>
-                </div>
-              </div>
 
-              <div className="flex items-center p-4 bg-gray-50 rounded-lg">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <Target className="w-5 h-5 text-purple-600" />
+                <div className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <p className="font-medium text-gray-900">
+                      Career chat session
+                    </p>
+                    <p className="text-sm text-gray-600">1 day ago</p>
+                  </div>
                 </div>
-                <div className="ml-4 flex-1">
-                  <p className="font-medium text-gray-900">
-                    Resume optimized for Google position
-                  </p>
-                  <p className="text-sm text-gray-600">3 days ago</p>
+
+                <div className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <Target className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <p className="font-medium text-gray-900">
+                      Resume optimized for Google position
+                    </p>
+                    <p className="text-sm text-gray-600">3 days ago</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div> {/* End Main */}
+      </div>
     </div>
   )
 }
