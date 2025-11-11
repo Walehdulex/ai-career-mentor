@@ -132,7 +132,7 @@ const ProfileContent: React.FC = () => {
                       type="text"
                       value={user?.full_name || ''}
                       disabled
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-500 sm:text-sm"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-black sm:text-sm"
                     />
                   </div>
 
@@ -144,7 +144,7 @@ const ProfileContent: React.FC = () => {
                       type="email"
                       value={user?.email || ''}
                       disabled
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-500 sm:text-sm"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-black sm:text-sm "
                     />
                   </div>
                 </div>
@@ -166,7 +166,7 @@ const ProfileContent: React.FC = () => {
                       className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm ${
                         isEditing
                           ? 'focus:ring-blue-500 focus:border-blue-500'
-                          : 'bg-gray-50 text-gray-500'
+                          : 'bg-gray-50 text-black'
                       }`}
                     />
                   </div>
@@ -184,7 +184,7 @@ const ProfileContent: React.FC = () => {
                       className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm ${
                         isEditing
                           ? 'focus:ring-blue-500 focus:border-blue-500'
-                          : 'bg-gray-50 text-gray-500'
+                          : 'bg-gray-50 text-black'
                       }`}
                     >
                       <option value="">Select an industry</option>
@@ -214,7 +214,7 @@ const ProfileContent: React.FC = () => {
                       className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm ${
                         isEditing
                           ? 'focus:ring-blue-500 focus:border-blue-500'
-                          : 'bg-gray-50 text-gray-500'
+                          : 'bg-gray-50 text-black'
                       }`}
                     />
                   </div>
@@ -234,7 +234,7 @@ const ProfileContent: React.FC = () => {
                       className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm ${
                         isEditing
                           ? 'focus:ring-blue-500 focus:border-blue-500'
-                          : 'bg-gray-50 text-gray-500'
+                          : 'bg-gray-50 text-black'
                       }`}
                     />
                   </div>
@@ -255,7 +255,7 @@ const ProfileContent: React.FC = () => {
                     className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm ${
                       isEditing
                         ? 'focus:ring-blue-500 focus:border-blue-500'
-                        : 'bg-gray-50 text-gray-500'
+                        : 'bg-gray-50 text-black'
                     }`}
                   />
                 </div>
