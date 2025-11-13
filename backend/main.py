@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 from passlib.context import CryptContext
 from dotenv import load_dotenv
-from enhanced_resume_parser import EnhancedResumeParser
+from .enhanced_resume_parser import EnhancedResumeParser
 from database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity
 from sqlalchemy.orm import Session
 from docx import Document
