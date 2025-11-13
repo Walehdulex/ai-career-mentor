@@ -24,12 +24,12 @@ import tempfile
 from datetime import datetime
 from .auth import verify_password, get_password_hash, create_access_token, get_current_user_id
 from typing import Optional
-from job_api_service import JobAPIService
-from job_matching import JobMatchingEngine
+from .job_api_service import JobAPIService
+from .job_matching import JobMatchingEngine
 from typing import List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import desc, and_, or_
-from email_service import send_job_alert_email
+from .email_service import send_job_alert_email
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 
