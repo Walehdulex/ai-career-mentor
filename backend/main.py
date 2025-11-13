@@ -13,7 +13,7 @@ from pathlib import Path
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 from .enhanced_resume_parser import EnhancedResumeParser
-from .database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity, JobPosting, UserJobPreferences, JobApplication, SavedJob, JobMatch,
+from .database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity, JobPosting, UserJobPreferences, JobApplication, SavedJob, JobMatch
 (get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert )
 from sqlalchemy.orm import Session
 from docx import Document
