@@ -13,7 +13,8 @@ from pathlib import Path
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 from .enhanced_resume_parser import EnhancedResumeParser
-from .database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity
+from .database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity, JobPosting, UserJobPreferences, JobApplication, SavedJob, JobMatch,
+(get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert )
 from sqlalchemy.orm import Session
 from docx import Document
 from docx.shared import Inches, Pt
@@ -22,15 +23,15 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.shared import OxmlElement, qn
 import tempfile
 from datetime import datetime
-from auth import verify_password, get_password_hash, create_access_token, get_current_user_id
+from .auth import verify_password, get_password_hash, create_access_token, get_current_user_id
 from typing import Optional
 from job_api_service import JobAPIService
 from job_matching import JobMatchingEngine
-from database import JobPosting, UserJobPreferences, JobApplication, SavedJob, JobMatch
+# from database import JobPosting, UserJobPreferences, JobApplication, SavedJob, JobMatch
 from typing import List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import desc, and_, or_
-from database import (get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert )
+# from database import (get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert )
 from email_service import send_job_alert_email
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
