@@ -94,6 +94,8 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [totalJobsCount, setTotalJobsCount] = useState(0);
+  const [sortBy, setSortBy] = useState('match'); // NEW: 'match', 'date', 'salary'
+  const [sortOrder, setSortOrder] = useState('desc'); // NEW: 'asc' or 'desc'
   const [filters, setFilters] = useState({
     location: '',
     remoteType: 'all',
@@ -101,6 +103,7 @@ export default function JobsPage() {
     experienceLevel: 'all',
     employmentType: 'all'
   });
+  
 
   useEffect(() => {
     fetchJobs();
@@ -351,24 +354,52 @@ export default function JobsPage() {
     );
   };
 
-  const filteredJobs = jobs.filter(job => {
-    if (searchQuery && !job.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-      !job.company.toLowerCase().includes(searchQuery.toLowerCase())) {
+  const filteredJobs = jobs
+  .filter(job => {
+    // Your existing filter logic stays the same
+    if (searchQuery && 
+        !job.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
+        !job.company.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
-    if (filters.location && !job.location.toLowerCase().includes(filters.location.toLowerCase())) {
+    if (filters.location && 
+        !job.location.toLowerCase().includes(filters.location.toLowerCase())) {
       return false;
     }
-    if (filters.remoteType !== 'all' && job.remoteType.toLowerCase() !== filters.remoteType.toLowerCase()) {
+    if (filters.remoteType !== 'all' && 
+        job.remoteType.toLowerCase() !== filters.remoteType.toLowerCase()) {
       return false;
     }
-    if (filters.experienceLevel !== 'all' && job.experienceLevel.toLowerCase() !== filters.experienceLevel.toLowerCase()) {
+    if (filters.experienceLevel !== 'all' && 
+        job.experienceLevel.toLowerCase() !== filters.experienceLevel.toLowerCase()) {
       return false;
     }
     if (filters.salaryMin && job.salaryMin < parseInt(filters.salaryMin)) {
       return false;
     }
     return true;
+  })
+  // ✅ NEW: Add sorting
+  .sort((a, b) => {
+    let compareValue = 0;
+    
+    if (sortBy === 'match') {
+      // Sort by match score
+      compareValue = b.matchScore - a.matchScore;
+    } else if (sortBy === 'date') {
+      // Sort by posted date
+      const dateA = a.postedDate ? new Date(a.postedDate).getTime() : 0;
+      const dateB = b.postedDate ? new Date(b.postedDate).getTime() : 0;
+      compareValue = dateB - dateA;
+    } else if (sortBy === 'salary') {
+      // Sort by salary (max salary)
+      const salaryA = a.salaryMax || a.salaryMin || 0;
+      const salaryB = b.salaryMax || b.salaryMin || 0;
+      compareValue = salaryB - salaryA;
+    }
+    
+    // Reverse if ascending order
+    return sortOrder === 'asc' ? -compareValue : compareValue;
   });
 
   // Count old jobs
@@ -397,11 +428,17 @@ export default function JobsPage() {
               <span className="text-blue-600 font-medium">
                 📊 Showing {filteredJobs.length} of {totalJobsCount} jobs
               </span>
+              <span className="text-gray-600">
+                Sorted by: <span className="font-medium">
+                  {sortBy === 'match' ? 'Match Score' : sortBy === 'date' ? 'Date Posted' : 'Salary'}
+                </span>
+                </span>
               {oldJobsCount > 0 && (
                 <span className="text-orange-600 font-medium flex items-center gap-1">
                   <AlertCircle className="w-4 h-4" />
                   {oldJobsCount} may be outdated
                 </span>
+                
               )}
             </div>
           </div>
@@ -465,6 +502,27 @@ export default function JobsPage() {
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
+
+              {/*  Sort Dropdown */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="match">Sort by Match</option>
+                <option value="date">Sort by Date</option>
+                <option value="salary">Sort by Salary</option>
+              </select>
+              
+              {/*  Sort Order Toggle */}
+              <button
+                onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+                className="px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium flex items-center gap-2"
+                title={sortOrder === 'desc' ? 'Highest first' : 'Lowest first'}
+              >
+                {sortOrder === 'desc' ? '↓' : '↑'}
+                {sortOrder === 'desc' ? 'High to Low' : 'Low to High'}
+              </button>
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="px-6 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium flex items-center gap-2 text-black"
