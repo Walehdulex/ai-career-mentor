@@ -31,7 +31,7 @@ from job_matching import JobMatchingEngine
 from typing import List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import desc, and_, or_
-# from database import (get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert )
+from .database import (get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert )
 from email_service import send_job_alert_email
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
