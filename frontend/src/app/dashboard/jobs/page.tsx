@@ -96,6 +96,7 @@ export default function JobsPage() {
   const [totalJobsCount, setTotalJobsCount] = useState(0);
   const [sortBy, setSortBy] = useState('match'); // NEW: 'match', 'date', 'salary'
   const [sortOrder, setSortOrder] = useState('desc'); // NEW: 'asc' or 'desc'
+  const [displayedJobsCount, setDisplayedJobsCount] = useState(20);
   const [filters, setFilters] = useState({
     location: '',
     remoteType: 'all',
@@ -108,7 +109,8 @@ export default function JobsPage() {
   useEffect(() => {
     fetchJobs();
     fetchApplications();
-  }, []);
+    setDisplayedJobsCount(20);
+  }, [searchQuery, filters, sortBy, sortOrder, activeTab]);
 
   const fetchJobs = async () => {
     try {
@@ -402,6 +404,9 @@ export default function JobsPage() {
     return sortOrder === 'asc' ? -compareValue : compareValue;
   });
 
+const displayedJobs = filteredJobs.slice(0, displayedJobsCount);
+const hasMoreJobs = filteredJobs.length > displayedJobsCount;
+
   // Count old jobs
   const oldJobsCount = filteredJobs.filter(job => formatJobDate(job.postedDate).isOld).length;
 
@@ -426,7 +431,10 @@ export default function JobsPage() {
             {/* NEW: Show job counts */}
             <div className="mt-3 flex items-center gap-4 text-sm">
               <span className="text-blue-600 font-medium">
-                📊 Showing {filteredJobs.length} of {totalJobsCount} jobs
+                📊 Showing {displayedJobs.length} of {filteredJobs.length} jobs
+                {filteredJobs.length !== totalJobsCount && (
+                  <span className="text-gray-500"> (filtered from {totalJobsCount})</span>
+                  )}
               </span>
               <span className="text-gray-600">
                 Sorted by: <span className="font-medium">
@@ -603,8 +611,32 @@ export default function JobsPage() {
 
         {activeTab === 'recommended' && (
           <div className="space-y-4">
-            {filteredJobs.length > 0 ? (
-              filteredJobs.map(job => <JobCard key={job.id} job={job} />)
+            {displayedJobs.length > 0 ? (
+              <>
+                {displayedJobs.map(job => <JobCard key={job.id} job={job} />)}
+                {/* ✅ NEW: Load More Button */}
+                {hasMoreJobs && (
+                  <div className="flex justify-center pt-6">
+                    <button
+                      onClick={() => setDisplayedJobsCount(prev => prev + 20)}
+                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                    >
+                      Load More Jobs
+                      <span className="text-sm opacity-90">
+                        ({displayedJobsCount} of {filteredJobs.length})
+                      </span>
+                    </button>
+                  </div>
+                )}
+                
+                {/* ✅ NEW: Show when all jobs loaded */}
+                {!hasMoreJobs && displayedJobs.length > 20 && (
+                  <div className="text-center py-6 text-gray-500">
+                    <p className="font-medium">You've reached the end!</p>
+                    <p className="text-sm mt-1">Showing all {filteredJobs.length} jobs</p>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                 <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
