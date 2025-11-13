@@ -5,11 +5,34 @@ from datetime import datetime
 import os
 
 #Database Setup
-DATABASE_URL = "sqlite:///./career_mentor.db"
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Load environment variable
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./career_mentor.db")
+
+# Render (and some other hosts) use "postgres://" — SQLAlchemy needs "postgresql://"
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Engine setup
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        DATABASE_URL, connect_args={"check_same_thread": False}
+    )
+else:
+    engine = create_engine(DATABASE_URL)
+
+# Session setup
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Base declarative class
 Base = declarative_base()
 
+# Dependency for FastAPI routes
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # User Management Models
 class User(Base):
@@ -393,3 +416,13 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# from sqlalchemy import create_engine
+
+# # DATABASE_URL = "postgresql://postgres:%5B92%24eU5r7XRrfgYm%5D@db.ophvscnepuoluydaondw.supabase.co:5432/postgres"
+
+# # engine = create_engine(DATABASE_URL)
+# # connection = engine.connect()
+# # print("✅ Connected successfully!")
+# # connection.close()
+
