@@ -203,7 +203,7 @@ class JobMatchingEngine:
         user_id: int,
         db: Session,
         limit: int = 20,
-        min_score: float = 50.0
+        min_score: float = 0.0
     ) -> List[Tuple[JobPosting, Dict]]:
         """Find and score jobs for a user"""
         
@@ -214,6 +214,7 @@ class JobMatchingEngine:
         
         user_profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
         user_preferences = db.query(UserJobPreferences).filter(UserJobPreferences.user_id == user_id).first()
+        
         
         # Get active jobs
         jobs = db.query(JobPosting).filter(JobPosting.is_active == True).all()

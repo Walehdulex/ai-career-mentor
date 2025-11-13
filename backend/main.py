@@ -30,7 +30,10 @@ from database import JobPosting, UserJobPreferences, JobApplication, SavedJob, J
 from typing import List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import desc, and_, or_
-from database import get_db
+from database import (get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert )
+from email_service import send_job_alert_email
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
 
 
 
@@ -189,6 +192,43 @@ class ProfileResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+#Helper fuctiion for my experience level problem
+def extract_experience_level(title: str, description: str = "") -> str:
+    """
+    Extract experience level from job title and description
+    Returns: 'Junior', 'Mid', or 'Senior'
+    """
+    text = (title + " " + description).lower()
+    
+    # Senior level keywords
+    senior_keywords = [
+        'senior', 'sr.', 'lead', 'principal', 'staff', 'architect',
+        'head of', 'director', 'manager', 'expert', 'specialist',
+        '5+ years', '5-', '6+ years', '7+ years', '8+ years',
+        'experienced', 'advanced'
+    ]
+    
+    # Junior level keywords
+    junior_keywords = [
+        'junior', 'jr.', 'entry', 'graduate', 'intern',
+        'associate', 'trainee', '0-2 years', '1-2 years',
+        'early career', 'beginner', 'starter'
+    ]
+    
+    # Check for senior
+    for keyword in senior_keywords:
+        if keyword in text:
+            return 'Senior'
+    
+    # Check for junior
+    for keyword in junior_keywords:
+        if keyword in text:
+            return 'Junior'
+    
+    # Default to Mid if no specific level found
+    return 'Mid'
+
 #Admin route
 @app.get("/api/admin/check-config")
 async def check_api_configuration():
@@ -210,7 +250,11 @@ async def populate_initial_jobs(db: Session = Depends(get_db)):
         "frontend developer", 
         "backend developer",
         "full stack developer",
-        "python developer"
+        "python developer",
+        "junior developer",
+        "senior developer",
+        "lead developer",
+         # I would add more soont:
     ]
     
     total_added = 0
@@ -229,6 +273,12 @@ async def populate_initial_jobs(db: Session = Depends(get_db)):
                 skills = job_api_service.extract_skills_from_description(
                     job_data.get('description', '')
                 )
+
+                #Extracting Experience level
+                experience_level = extract_experience_level(
+                    job_data['title'],
+                    job_data.get('description', '')
+                )
                 
                 job = JobPosting(
                     title=job_data['title'],
@@ -241,7 +291,7 @@ async def populate_initial_jobs(db: Session = Depends(get_db)):
                     salary_min=job_data.get('salary_min'),
                     salary_max=job_data.get('salary_max'),
                     salary_currency='GBP',
-                    experience_level='Mid',
+                    experience_level=experience_level,
                     employment_type=job_data['employment_type'],
                     required_skills=skills,
                     external_id=job_data['external_id'],
@@ -253,6 +303,11 @@ async def populate_initial_jobs(db: Session = Depends(get_db)):
                 db.add(job)
                 total_added += 1
             else:
+                experience_level = extract_experience_level(
+                    job_data['title'],
+                    job_data.get('description', '')
+                )
+                existing.experience_level = experience_level
                 total_updated += 1
         
         db.commit()
@@ -1280,57 +1335,31 @@ async def get_user_profile(
 
 @app.put("/api/profile")
 async def update_user_profile(
-    profile_data: ProfileUpdate, 
+    profile_data: dict,
     current_user_id: str = Depends(get_current_user_id), 
     db: Session = Depends(get_db)
 ):
     """Update user profile information"""
     try:
-        print(f"Updating profile for user: {current_user_id}")
-        
-        profile = db.query(UserProfile).filter(
-            UserProfile.user_id == int(current_user_id)
-        ).first()
+        user_id = int(current_user_id)
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
         
         if not profile:
-            # Create new profile if doesn't exist
-            profile = UserProfile(
-                user_id=int(current_user_id),
-                created_at=datetime.utcnow()
-            )
+            profile = UserProfile(user_id=user_id)
             db.add(profile)
         
-        # Update simple fields directly
-        if profile_data.current_role is not None:
-            profile.current_role = profile_data.current_role
-        if profile_data.industry is not None:
-            profile.industry = profile_data.industry
-        if profile_data.years_of_experience is not None:
-            profile.years_of_experience = profile_data.years_of_experience
-        if profile_data.career_goals is not None:
-            profile.career_goals = profile_data.career_goals
-        if profile_data.location is not None:
-            profile.location = profile_data.location
-        
-        profile.updated_at = datetime.utcnow()
+        # Update only fields that exist in the model
+        for field, value in profile_data.items():
+            if hasattr(profile, field):
+                setattr(profile, field, value)
         
         db.commit()
         db.refresh(profile)
         
-        print(f"Profile updated successfully!")
-        
-        return {
-            "current_role": profile.current_role,
-            "industry": profile.industry,
-            "years_of_experience": profile.years_of_experience,
-            "career_goals": profile.career_goals,
-            "location": profile.location,
-            "updated_at": profile.updated_at
-        }
+        return {"message": "Profile updated successfully"}
         
     except Exception as e:
-        db.rollback()
-        print(f"Error updating profile: {e}")
+        print(f"Error updating profile: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error updating profile: {str(e)}"
@@ -1425,11 +1454,12 @@ async def fetch_jobs_from_apis(
 
 @app.post("/api/job-preferences")
 async def create_or_update_job_preferences(
-    preferences: JobPreferencesCreate,
+    preferences: dict,
     current_user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     """Create or update user job preferences"""
+    user_id = int(current_user_id)
     
     existing = db.query(UserJobPreferences).filter(
         UserJobPreferences.user_id == current_user_id
@@ -1437,28 +1467,23 @@ async def create_or_update_job_preferences(
     
     if existing:
         # Update existing preferences
-        for key, value in preferences.dict(exclude_unset=True).items():
-            setattr(existing, key, value)
+        for key, value in preferences.items():
+            if hasattr(existing, key):
+                setattr(existing, key, value)
         existing.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(existing)
-        return {
-            "status": "updated",
-            "preferences": existing
-        }
+        return {"status": "updated", "preferences": existing}
     else:
         # Create new preferences
-        new_preferences = UserJobPreferences(
-            user_id=current_user_id,
-            **preferences.dict()
-        )
+        new_preferences = UserJobPreferences( user_id=user_id)
+        for key, value in preferences.items():  
+            if hasattr(new_preferences, key):
+                setattr(new_preferences, key, value)
         db.add(new_preferences)
         db.commit()
         db.refresh(new_preferences)
-        return {
-            "status": "created",
-            "preferences": new_preferences
-        }
+        return {"status": "created","preferences": new_preferences}
     
 @app.get("/api/job-preferences")
 async def get_job_preferences(
@@ -2056,9 +2081,205 @@ async def debug_matching(user_id: int, db: Session = Depends(get_db)):
     }
 
 
+# Email Alerts  feature
+
+@app.post("/api/job-alerts")
+async def create_job_alert(
+    email: str,
+    min_match_score: int = 80,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Create job alert"""
+    user_id = int(current_user_id)
+    
+    alert = JobAlert(
+        user_id=user_id,
+        email=email,
+        min_match_score=min_match_score,
+        is_active=True
+    )
+    db.add(alert)
+    db.commit()
+    
+    return {"message": "Job alert created successfully"}
+    
+
+@app.get("/api/job-alerts")
+async def get_job_alerts(
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Get user's job alerts"""
+    user_id = int(current_user_id)
+    alerts = db.query(JobAlert).filter(JobAlert.user_id == user_id).all()
+    return alerts
+
+@app.delete("/api/job-alerts/{alert_id}")
+async def delete_job_alert(
+    alert_id: int,
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Delete job alert"""
+    user_id = int(current_user_id)
+    alert = db.query(JobAlert).filter(
+        JobAlert.id == alert_id,
+        JobAlert.user_id == user_id
+    ).first()
+    
+    if alert:
+        db.delete(alert)
+        db.commit()
+    
+    return {"message": "Alert deleted"}
+
+
+# Background job scheduler
+def fetch_jobs_and_send_alerts():
+    """Run daily to fetch jobs and send alerts"""
+    from database import SessionLocal
+    db = SessionLocal()
+    
+    try:
+        # Fetch new jobs
+        print("Fetching new jobs...")
+        queries = ["software developer", "frontend developer", "backend developer"]
+        
+        for query in queries:
+            jobs_data = job_api_service.fetch_and_store_jobs(query, "United Kingdom", 20)
+            
+            for job_data in jobs_data:
+                existing = db.query(JobPosting).filter(
+                    JobPosting.external_id == job_data['external_id']
+                ).first()
+                
+                if not existing:
+                    skills = job_api_service.extract_skills_from_description(
+                        job_data.get('description', '')
+                    )
+                    
+                    job = JobPosting(
+                        title=job_data['title'],
+                        company_name=job_data['company_name'],
+                        location=job_data['location'],
+                        remote_type=job_data['remote_type'],
+                        description=job_data['description'],
+                        salary_min=job_data.get('salary_min'),
+                        salary_max=job_data.get('salary_max'),
+                        salary_currency='GBP',
+                        experience_level='Mid',
+                        employment_type=job_data['employment_type'],
+                        required_skills=skills,
+                        external_id=job_data['external_id'],
+                        source=job_data['source'],
+                        apply_url=job_data.get('apply_url'),
+                        posted_date=job_data.get('posted_date') or datetime.utcnow(),
+                        is_active=True
+                    )
+                    db.add(job)
+            
+            db.commit()
+        
+        # Send alerts to users
+        print("Sending job alerts...")
+        alerts = db.query(JobAlert).filter(JobAlert.is_active == True).all()
+        
+        for alert in alerts:
+            matches = matching_engine.find_matching_jobs(
+                alert.user_id, db, limit=10, min_score=alert.min_match_score
+            )
+            
+            if matches:
+                jobs_to_send = [
+                    {
+                        'title': job.title,
+                        'company': job.company_name,
+                        'location': job.location,
+                        'match_score': round(scores['overall_score']),
+                        'apply_url': job.apply_url or '#'
+                    }
+                    for job, scores in matches
+                ]
+                
+                import asyncio
+                asyncio.run(send_job_alert_email(alert.email, jobs_to_send))
+                
+                alert.last_sent = datetime.utcnow()
+                db.commit()
+        
+        print("Job fetch and alerts completed")
+    
+    finally:
+        db.close()
+
+# Schedule daily job fetching at 9 AM
+scheduler = BackgroundScheduler()
+scheduler.add_job(fetch_jobs_and_send_alerts, 'cron', hour=21, minute=30)
+scheduler.start()
+
+# Shutdown scheduler on exit
+atexit.register(lambda: scheduler.shutdown())
 
 
 
+
+#Debugging codes below this line 
+@app.get("/api/debug/all-jobs")
+async def debug_all_jobs(
+    current_user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    """Debug: Show all jobs with their match scores"""
+    user_id = int(current_user_id)
+    
+    # Get all active jobs
+    jobs = db.query(JobPosting).filter(JobPosting.is_active == True).order_by(desc(JobPosting.posted_date)).limit(20).all()
+    
+    result = []
+    for job in jobs:
+        # Calculate match score
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            user_profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
+            user_preferences = db.query(UserJobPreferences).filter(UserJobPreferences.user_id == user_id).first()
+            
+            overall_score, detailed_scores = matching_engine.calculate_match_score(
+                user, job, user_profile, user_preferences
+            )
+            
+            result.append({
+                "id": job.id,
+                "title": job.title,
+                "company": job.company_name,
+                "posted_date": job.posted_date.isoformat() if job.posted_date else None,
+                "match_score": round(overall_score, 1),
+                "scores": detailed_scores
+            })
+        except Exception as e:
+            result.append({
+                "id": job.id,
+                "title": job.title,
+                "error": str(e)
+            })
+    
+    return result
+
+@app.get("/api/admin/debug-jobs")
+async def debug_jobs_simple(db: Session = Depends(get_db)):
+    """Debug: Show recent jobs"""
+    jobs = db.query(JobPosting).filter(JobPosting.is_active == True).order_by(desc(JobPosting.posted_date)).limit(10).all()
+    
+    return [
+        {
+            "id": job.id,
+            "title": job.title,
+            "company": job.company_name,
+            "posted_date": str(job.posted_date),
+            "skills": job.required_skills
+        }
+        for job in jobs
+    ]
 
 # @app.get("/api/debug/check-auth")
 # async def check_auth(authorization: Optional[str] = Header(None)):

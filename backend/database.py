@@ -360,34 +360,14 @@ class JobAlert(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    
-    # Alert configuration
-    alert_name = Column(String)
-    search_query = Column(String)
-    location_filter = Column(String)
-    salary_min = Column(Integer)
-    remote_only = Column(Boolean, default=False)
-    
-    # Filtering criteria
-    required_skills = Column(JSON)
-    company_sizes = Column(JSON)
-    experience_levels = Column(JSON)
-    
-    # Alert behavior
+    email = Column(String)
     is_active = Column(Boolean, default=True)
-    frequency = Column(String, default="daily")  # instant, daily, weekly
-    last_sent = Column(DateTime)
-    
-    # Performance tracking
-    jobs_found_count = Column(Integer, default=0)
-    click_through_rate = Column(Float, default=0.0)
-    
-    # Timestamps
+    min_match_score = Column(Integer, default=80)
+    last_sent = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationship
-    user = relationship("User")   
+    user = relationship("User")
 
 class Resume(Base):
     __tablename__ = "resumes"

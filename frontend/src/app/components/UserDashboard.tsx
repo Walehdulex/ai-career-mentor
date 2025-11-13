@@ -3,18 +3,21 @@
 import { useAuth } from '../contexts/AuthContext'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Header } from './layout/Header'
 import {
   Briefcase,
   FileText,
+  Bell,
+  TrendingUp,
+  Check,
+  ArrowRight,
   MessageCircle,
   Settings,
   Target,
-  Mic,
+  Mic
 } from 'lucide-react'
+import { Header } from './layout/Header'
 
-export default function UserDashboard() 
-{
+export default function UserDashboard() {
   const { user } = useAuth()
   const pathname = usePathname()
 
@@ -59,37 +62,46 @@ export default function UserDashboard()
       title: 'Analyze Resume',
       description: 'Upload and get AI-powered feedback on your resume',
       href: '/resume',
-      icon: <FileText className="w-6 h-6" />,
-      color: 'bg-blue-500 hover:bg-blue-600',
+      icon: FileText, // Component type (not JSX)
+      color: 'blue',
     },
     {
       title: 'Career Chat',
       description: 'Get personalized career advice from our AI mentor',
       href: '/chat',
-      icon: <MessageCircle className="w-6 h-6" />,
-      color: 'bg-green-500 hover:bg-green-600',
+      icon: MessageCircle,
+      color: 'green',
     },
     {
       title: 'Mock Interview',
       description: 'Practice interviews with AI feedback',
       href: '/interview',
-      icon: <Mic className="w-6 h-6" />,
-      color: 'bg-purple-500 hover:bg-purple-600',
+      icon: Mic,
+      color: 'purple',
     },
     {
       title: 'Job Matching',
       description: 'Find jobs that match your skills and preferences',
-      href: '/jobs',
-      icon: <Briefcase className="w-6 h-6" />,
-      color: 'bg-orange-500 hover:bg-orange-600',
+      href: '/dashboard/jobs',
+      icon: Briefcase,
+      color: 'orange',
     },
   ]
 
+  const getColorClasses = (color: string) => {
+    const colors: Record<string, string> = {
+      blue: 'bg-blue-50 text-blue-600 group-hover:bg-blue-100',
+      purple: 'bg-purple-50 text-purple-600 group-hover:bg-purple-100',
+      green: 'bg-green-50 text-green-600 group-hover:bg-green-100',
+      orange: 'bg-orange-50 text-orange-600 group-hover:bg-orange-100',
+    }
+    return colors[color]
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Add Header component at the top */}
       <Header />
-      
+
       <div className="flex">
         {/* Sidebar */}
         <aside className="w-64 bg-white border-r shadow-sm p-4 min-h-[calc(100vh-64px)]">
@@ -103,9 +115,10 @@ export default function UserDashboard()
                   key={item.name}
                   href={item.href}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                    ${isActive
-                      ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                     }`}
                 >
                   <Icon className="w-5 h-5" />
@@ -118,7 +131,6 @@ export default function UserDashboard()
 
         {/* Main content */}
         <div className="flex-1">
-          {/* Welcome Banner */}
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-sm">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
               <h1 className="text-3xl font-bold mb-2">
@@ -130,7 +142,6 @@ export default function UserDashboard()
             </div>
           </div>
 
-          {/* Main Dashboard Content */}
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -158,73 +169,32 @@ export default function UserDashboard()
               ))}
             </div>
 
-            {/* Quick Actions */}
+            {/* ✅ FIXED Quick Actions */}
             <div className="mb-8">
               <h2 className="text-xl font-bold text-gray-900 mb-6">
                 Quick Actions
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {quickActions.map((action) => (
-                  <Link
-                    key={action.title}
-                    href={action.href}
-                    className="group bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-all"
-                  >
-                    <div
-                      className={`${action.color} w-12 h-12 rounded-lg flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform`}
+                {quickActions.map((action) => {
+                  const Icon = action.icon
+                  return (
+                    <Link
+                      key={action.title}
+                      href={action.href}
+                      className="group bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-all"
                     >
-                      {action.icon}
-                    </div>
-                    <h3 className="font-semibold text-gray-900 mb-2">
-                      {action.title}
-                    </h3>
-                    <p className="text-sm text-gray-600">{action.description}</p>
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="bg-white rounded-lg shadow-sm border p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">
-                Recent Activity
-              </h2>
-              <div className="space-y-4">
-                <div className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <p className="font-medium text-gray-900">
-                      Resume analysis completed
-                    </p>
-                    <p className="text-sm text-gray-600">2 hours ago</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                    <MessageCircle className="w-5 h-5 text-green-600" />
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <p className="font-medium text-gray-900">
-                      Career chat session
-                    </p>
-                    <p className="text-sm text-gray-600">1 day ago</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Target className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <p className="font-medium text-gray-900">
-                      Resume optimized for Google position
-                    </p>
-                    <p className="text-sm text-gray-600">3 days ago</p>
-                  </div>
-                </div>
+                      <div
+                        className={`${action.color} w-12 h-12 rounded-lg flex items-center justify-center text-white mb-4 group-hover:scale-110 transition-transform`}
+                      >
+                        <Icon className="w-6 h-6" /> {/* ✅ Fixed rendering */}
+                      </div>
+                      <h3 className="font-semibold text-gray-900 mb-2">
+                        {action.title}
+                      </h3>
+                      <p className="text-sm text-gray-600">{action.description}</p>
+                    </Link>
+                  )
+                })}
               </div>
             </div>
           </div>

@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Briefcase, MapPin, DollarSign, TrendingUp, Star, Bookmark, Filter, Search, X, Check, Building2, Clock, ExternalLink, Loader2 } from 'lucide-react';
+import { Briefcase, MapPin, DollarSign, TrendingUp, Star, Bookmark, Filter, Search, X, Check, Building2, Clock, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import  { Calendar, FileText, Edit2} from 'lucide-react'
 
+// ... (keep all your existing interfaces: Job, Application, etc.)
 
 interface Job {
   id: number;
@@ -57,6 +58,30 @@ interface ApplicationStatusModalProps {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+// NEW: Helper function to format dates and detect old jobs
+const formatJobDate = (dateString: string) => {
+  if (!dateString) return { text: 'Recently posted', isOld: false, daysAgo: 0 };
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - date.getTime());
+  const daysAgo = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  let text = '';
+  let isOld = false;
+  
+  if (daysAgo === 0) text = 'Today';
+  else if (daysAgo === 1) text = 'Yesterday';
+  else if (daysAgo < 7) text = `${daysAgo} days ago`;
+  else if (daysAgo < 30) text = `${Math.floor(daysAgo / 7)} weeks ago`;
+  else if (daysAgo < 90) text = `${Math.floor(daysAgo / 30)} months ago`;
+  else {
+    text = `${Math.floor(daysAgo / 30)} months ago`;
+    isOld = true; // Mark as old if > 3 months
+  }
+  
+  return { text, isOld, daysAgo };
+};
 
 export default function JobsPage() {
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
@@ -68,6 +93,7 @@ export default function JobsPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [totalJobsCount, setTotalJobsCount] = useState(0);
   const [filters, setFilters] = useState({
     location: '',
     remoteType: 'all',
@@ -84,7 +110,8 @@ export default function JobsPage() {
   const fetchJobs = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/jobs/recommendations?min_score=0`, {
+      // UPDATED: Request 100 jobs instead of 20
+      const response = await fetch(`${API_BASE_URL}/api/jobs/recommendations?limit=100&min_score=0`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -92,7 +119,7 @@ export default function JobsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setJobs(data.recommendations.map((rec: any) => ({
+        const jobsList = data.recommendations.map((rec: any) => ({
           id: rec.job.id,
           title: rec.job.title,
           company: rec.job.company_name,
@@ -111,13 +138,22 @@ export default function JobsPage() {
           companySize: rec.job.company_size,
           industry: rec.job.industry,
           application_url: rec.job.apply_url
+        }));
+        
+        setJobs(jobsList);
+        setTotalJobsCount(jobsList.length);
+        // 🔍 ADD THIS DEBUG LOG:
+        console.log('Total jobs:', jobsList.length);
+        console.log('Experience levels:', [...new Set(jobsList.map(j => j.experienceLevel))]);
+        console.log('Sample jobs:', jobsList.slice(0, 3).map(j => ({
+          title: j.title,
+          experience: j.experienceLevel
         })));
       } else {
-        setJobs(getMockJobs());
+        console.error('Failed to fetch jobs');
       }
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      setJobs(getMockJobs());
     } finally {
       setLoading(false);
     }
@@ -134,53 +170,11 @@ export default function JobsPage() {
       if (response.ok) {
         const data = await response.json();
         setApplications(data);
-      } else {
-        setApplications(getMockApplications());
       }
     } catch (error) {
       console.error('Error fetching applications:', error);
-      setApplications(getMockApplications());
     }
   };
-
-  const getMockJobs = (): Job[] => [
-    {
-      id: 1,
-      title: 'Senior Full Stack Developer',
-      company: 'TechCorp Ltd',
-      location: 'London, UK',
-      remoteType: 'Hybrid',
-      salaryMin: 70000,
-      salaryMax: 95000,
-      experienceLevel: 'Senior',
-      employmentType: 'Full-time',
-      postedDate: '2 days ago',
-      matchScore: 94,
-      scores: {
-        skills: 95,
-        experience: 92,
-        location: 98,
-        salary: 90,
-        company: 94
-      },
-      matchingSkills: ['React', 'Node.js', 'TypeScript', 'PostgreSQL'],
-      missingSkills: ['Kubernetes'],
-      description: 'Join our growing team to build scalable web applications using modern technologies...',
-      companySize: 'Medium',
-      industry: 'Technology'
-    }
-  ];
-
-  const getMockApplications = (): Application[] => [
-    {
-      id: 1,
-      jobTitle: 'Senior Full Stack Developer',
-      company: 'TechCorp Ltd',
-      status: 'interview',
-      appliedDate: '2024-09-28',
-      nextStep: 'Technical interview on Oct 5'
-    }
-  ];
 
   const toggleSaveJob = async (jobId: number) => {
     const newSaved = new Set(savedJobs);
@@ -241,105 +235,121 @@ export default function JobsPage() {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const JobCard = ({ job }: { job: Job }) => (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getMatchScoreColor(job.matchScore)}`}>
-              {job.matchScore}% Match
-            </span>
+  const JobCard = ({ job }: { job: Job }) => {
+    const dateInfo = formatJobDate(job.postedDate);
+    
+    return (
+      <div className={`bg-white rounded-lg border p-6 hover:shadow-lg transition-shadow ${
+        dateInfo.isOld ? 'border-orange-200 bg-orange-50/20' : 'border-gray-200'
+      }`}>
+        {/* OLD JOB WARNING */}
+        {dateInfo.isOld && (
+          <div className="mb-3 flex items-center gap-2 text-orange-700 bg-orange-100 px-3 py-2 rounded-lg text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <span className="font-medium">This job may be closed - posted {dateInfo.text}</span>
           </div>
-          <div className="flex items-center gap-2 text-gray-600 mb-3">
-            <Building2 className="w-4 h-4" />
-            <span className="font-medium">{job.company}</span>
-            <span className="text-gray-400">•</span>
-            <span className="text-sm">{job.companySize}</span>
-          </div>
-        </div>
-        <button
-          onClick={() => toggleSaveJob(job.id)}
-          className={`p-2 rounded-lg transition-colors ${savedJobs.has(job.id)
-              ? 'bg-blue-50 text-blue-600'
-              : 'hover:bg-gray-100 text-gray-400'
-            }`}
-        >
-          <Bookmark className={`w-5 h-5 ${savedJobs.has(job.id) ? 'fill-current' : ''}`} />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <MapPin className="w-4 h-4" />
-          <span>{job.location} ({job.remoteType})</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <DollarSign className="w-4 h-4" />
-          <span>£{job.salaryMin?.toLocaleString()} - £{job.salaryMax?.toLocaleString()}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <Briefcase className="w-4 h-4" />
-          <span>{job.experienceLevel} • {job.employmentType}</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <Clock className="w-4 h-4" />
-          <span>Posted {job.postedDate}</span>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <TrendingUp className="w-4 h-4 text-blue-600" />
-          <span className="text-sm font-medium text-gray-700">Match Breakdown:</span>
-        </div>
-        <div className="grid grid-cols-5 gap-2">
-          {Object.entries(job.scores).map(([key, value]) => (
-            <div key={key} className="text-center">
-              <div className="text-xs text-gray-500 capitalize mb-1">{key}</div>
-              <div className={`text-sm font-semibold ${value >= 85 ? 'text-green-600' : 'text-gray-700'}`}>
-                {value}%
-              </div>
+        )}
+        
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h3 className="text-xl font-semibold text-gray-900">{job.title}</h3>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getMatchScoreColor(job.matchScore)}`}>
+                {job.matchScore}% Match
+              </span>
             </div>
-          ))}
+            <div className="flex items-center gap-2 text-gray-600 mb-3">
+              <Building2 className="w-4 h-4" />
+              <span className="font-medium">{job.company}</span>
+              <span className="text-gray-400">•</span>
+              <span className="text-sm">{job.companySize}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => toggleSaveJob(job.id)}
+            className={`p-2 rounded-lg transition-colors ${savedJobs.has(job.id)
+                ? 'bg-blue-50 text-blue-600'
+                : 'hover:bg-gray-100 text-gray-400'
+              }`}
+          >
+            <Bookmark className={`w-5 h-5 ${savedJobs.has(job.id) ? 'fill-current' : ''}`} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <MapPin className="w-4 h-4" />
+            <span>{job.location} ({job.remoteType})</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <DollarSign className="w-4 h-4" />
+            <span>£{job.salaryMin?.toLocaleString()} - £{job.salaryMax?.toLocaleString()}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Briefcase className="w-4 h-4" />
+            <span>{job.experienceLevel} • {job.employmentType}</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <Clock className="w-4 h-4" />
+            <span className={dateInfo.isOld ? 'text-orange-600 font-medium' : 'text-gray-600'}>
+              {dateInfo.text}
+            </span>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-blue-600" />
+            <span className="text-sm font-medium text-gray-700">Match Breakdown:</span>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {Object.entries(job.scores).map(([key, value]) => (
+              <div key={key} className="text-center">
+                <div className="text-xs text-gray-500 capitalize mb-1">{key}</div>
+                <div className={`text-sm font-semibold ${value >= 85 ? 'text-green-600' : 'text-gray-700'}`}>
+                  {value}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <div className="flex flex-wrap gap-2 mb-2">
+            {job.matchingSkills.slice(0, 5).map(skill => (
+              <span key={skill} className="px-3 py-1 bg-green-50 text-green-700 text-sm rounded-full border border-green-200">
+                <Check className="w-3 h-3 inline mr-1" />
+                {skill}
+              </span>
+            ))}
+            {job.matchingSkills.length > 5 && (
+              <span className="px-3 py-1 bg-gray-50 text-gray-600 text-sm rounded-full border border-gray-200">
+                +{job.matchingSkills.length - 5} more
+              </span>
+            )}
+          </div>
+        </div>
+
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2">{job.description}</p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => handleApply(job.id)}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            Apply Now
+          </button>
+          <button 
+            onClick={() => setSelectedJob(job)}
+            className="px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium transition-colors flex items-center gap-2 text-black"
+          >
+            View Details
+            <ExternalLink className="w-4 h-4" />
+          </button>
         </div>
       </div>
-
-      <div className="mb-4">
-        <div className="flex flex-wrap gap-2 mb-2">
-          {job.matchingSkills.map(skill => (
-            <span key={skill} className="px-3 py-1 bg-green-50 text-green-700 text-sm rounded-full border border-green-200">
-              <Check className="w-3 h-3 inline mr-1" />
-              {skill}
-            </span>
-          ))}
-          {job.missingSkills.map(skill => (
-            <span key={skill} className="px-3 py-1 bg-gray-50 text-gray-600 text-sm rounded-full border border-gray-200">
-              {skill}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{job.description}</p>
-
-      <div className="flex gap-3">
-        <button
-          onClick={() => handleApply(job.id)}
-          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-        >
-          Apply Now
-        </button>
-        <button 
-          onClick={() => setSelectedJob(job)}
-          className="px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg font-medium transition-colors flex items-center gap-2 text-black"
-        >
-          View Details
-          <ExternalLink className="w-4 h-4" />
-        </button>
-      </div>
-    </div>
-  );
+    );
+  };
 
   const filteredJobs = jobs.filter(job => {
     if (searchQuery && !job.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
@@ -352,7 +362,7 @@ export default function JobsPage() {
     if (filters.remoteType !== 'all' && job.remoteType.toLowerCase() !== filters.remoteType.toLowerCase()) {
       return false;
     }
-    if (filters.experienceLevel !== 'all' && job.experienceLevel !== filters.experienceLevel) {
+    if (filters.experienceLevel !== 'all' && job.experienceLevel.toLowerCase() !== filters.experienceLevel.toLowerCase()) {
       return false;
     }
     if (filters.salaryMin && job.salaryMin < parseInt(filters.salaryMin)) {
@@ -361,10 +371,16 @@ export default function JobsPage() {
     return true;
   });
 
+  // Count old jobs
+  const oldJobsCount = filteredJobs.filter(job => formatJobDate(job.postedDate).isOld).length;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading jobs...</p>
+        </div>
       </div>
     );
   }
@@ -376,6 +392,18 @@ export default function JobsPage() {
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Job Matching Dashboard</h1>
             <p className="text-gray-600">Personalized job recommendations based on your skills and preferences</p>
+            {/* NEW: Show job counts */}
+            <div className="mt-3 flex items-center gap-4 text-sm">
+              <span className="text-blue-600 font-medium">
+                📊 Showing {filteredJobs.length} of {totalJobsCount} jobs
+              </span>
+              {oldJobsCount > 0 && (
+                <span className="text-orange-600 font-medium flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {oldJobsCount} may be outdated
+                </span>
+              )}
+            </div>
           </div>
           <a
             href="/dashboard/jobs/preferences"
@@ -384,6 +412,10 @@ export default function JobsPage() {
             Set Preferences
           </a>
         </div>
+
+        {/* Rest of your existing UI code... */}
+        {/* (Tab navigation, filters, job listings) */}
+        {/* Keep everything else the same as your original code */}
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
           <div className="flex border-b border-gray-200">
@@ -593,9 +625,7 @@ export default function JobsPage() {
         />
       )}
     </div>
-
   );
-  
 }
 
 const JobDetailsModal = ({ job, onClose, onApply, onSave, isSaved }: JobDetailsModalProps) => {
