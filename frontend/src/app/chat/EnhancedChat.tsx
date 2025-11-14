@@ -176,48 +176,44 @@ export default function EnhancedChatPage() {
 
   // ✅ UPDATED: Using chatAPI
   const sendMessage = async () => {
-    if (!input.trim()) return
+  if (!input.trim()) return
 
-    const userMessage = input.trim()
-    setInput('')
-    setIsLoading(true)
+  const userMessage = input.trim()
+  setInput('')
+  setIsLoading(true)
 
-    // Add user message to chat immediately
-    const newUserMessage: Message = { role: 'user', content: userMessage }
-    setMessages(prev => [...prev, newUserMessage])
+  const newUserMessage: Message = { role: 'user', content: userMessage }
+  setMessages(prev => [...prev, newUserMessage])
 
-    try {
-      // ✅ FIX: Only include session_id if it exists
-      const requestData = currentSessionId 
-        ? { message: userMessage, session_id: currentSessionId }
-        : { message: userMessage }
+  try {
+    // ✅ ALWAYS send session_id (generate if doesn't exist)
+    const sessionIdToUse = currentSessionId || crypto.randomUUID()
+    
+    const response = await chatAPI.sendMessage({
+      message: userMessage,
+      session_id: sessionIdToUse
+    })
 
-      const response = await chatAPI.sendMessage(requestData)
-
-      // Add AI response to chat
-      const aiMessage: Message = { 
-        role: 'ai', 
-        content: response.data.response 
-      }
-      setMessages(prev => [...prev, aiMessage])
-      
-      // Update session ID for subsequent messages
-      setCurrentSessionId(response.data.session_id)
-      
-      // Refresh sessions list to show updated titles
-      loadChatSessions()
-      
-    } catch (error) {
-      console.error('Error:', error)
-      const errorMessage: Message = { 
-        role: 'ai', 
-        content: 'Sorry, there was an error connecting to the AI mentor. Please try again.' 
-      }
-      setMessages(prev => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
+    const aiMessage: Message = { 
+      role: 'ai', 
+      content: response.data.response 
     }
+    setMessages(prev => [...prev, aiMessage])
+    
+    setCurrentSessionId(response.data.session_id)
+    loadChatSessions()
+    
+  } catch (error) {
+    console.error('Error:', error)
+    const errorMessage: Message = { 
+      role: 'ai', 
+      content: 'Sorry, there was an error connecting to the AI mentor. Please try again.' 
+    }
+    setMessages(prev => [...prev, errorMessage])
+  } finally {
+    setIsLoading(false)
   }
+}
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
