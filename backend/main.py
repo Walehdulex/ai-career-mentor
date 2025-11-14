@@ -5,15 +5,17 @@ from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 from openai import OpenAI
+import sys
 import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import shutil
 import json
 import uuid
 from pathlib import Path
 from passlib.context import CryptContext
 from dotenv import load_dotenv
-from .enhanced_resume_parser import EnhancedResumeParser
-from .database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity, JobPosting, UserJobPreferences, JobApplication, SavedJob, JobMatch,get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert
+from backend.enhanced_resume_parser import EnhancedResumeParser
+from backend.database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity, JobPosting, UserJobPreferences, JobApplication, SavedJob, JobMatch,get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert
 from sqlalchemy.orm import Session
 from docx import Document
 from docx.shared import Inches, Pt
@@ -22,14 +24,14 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.shared import OxmlElement, qn
 import tempfile
 from datetime import datetime
-from .auth import verify_password, get_password_hash, create_access_token, get_current_user_id
+from backend.auth import verify_password, get_password_hash, create_access_token, get_current_user_id
 from typing import Optional
-from .job_api_service import JobAPIService
-from .job_matching import JobMatchingEngine
+from backend.job_api_service import JobAPIService
+from backend.job_matching import JobMatchingEngine
 from typing import List, Optional
 from datetime import datetime, timedelta
 from sqlalchemy import desc, and_, or_
-from .email_service import send_job_alert_email
+from backend.email_service import send_job_alert_email
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 
@@ -65,7 +67,7 @@ create_tables()
 #Enabling CORS for frontend connection
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], # Next.js default port
+    allow_origins=["https://ai-career-mentor-kappa.vercel.app"], # Next.js default port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
