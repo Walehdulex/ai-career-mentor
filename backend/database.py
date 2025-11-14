@@ -6,7 +6,12 @@ import os
 
 #Database Setup
 # Load environment variable
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./career_mentor.db")
+DATABASE_URL = os.getenv("DATABASE_URL", 
+    "postgresql://postgres.ophvscnepuoluydaondw:c3K1Nnsut7SAVU4G"
+    "@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
+    "?sslmode=require&prepared_statement_cache_size=0"
+)
+
 
 # Render (and some other hosts) use "postgres://" — SQLAlchemy needs "postgresql://"
 if DATABASE_URL.startswith("postgres://"):
@@ -417,12 +422,21 @@ def get_db():
     finally:
         db.close()
 
+
+#Debugging below
 # from sqlalchemy import create_engine
 
-# # DATABASE_URL = "postgresql://postgres:%5B92%24eU5r7XRrfgYm%5D@db.ophvscnepuoluydaondw.supabase.co:5432/postgres"
+# DATABASE_URL = (
+#     "postgresql://postgres.ophvscnepuoluydaondw:c3K1Nnsut7SAVU4G"
+#     "@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
+#     "?sslmode=require&prepared_statement_cache_size=0"
+# )
 
-# # engine = create_engine(DATABASE_URL)
-# # connection = engine.connect()
-# # print("✅ Connected successfully!")
-# # connection.close()
+# engine = create_engine(DATABASE_URL)
+
+# with engine.connect() as conn:
+#     print("Connected successfully!")
+
+
+
 
