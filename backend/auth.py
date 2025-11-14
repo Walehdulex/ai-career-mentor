@@ -17,6 +17,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30 * 24 * 60 # 30 days
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 #Token Scheme
 security = HTTPBearer()
 
@@ -24,6 +25,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
+    # Ensure password doesn't exceed bcrypt's 72-byte limit
+    if len(password.encode('utf-8')) > 72:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password is too long (max 72 characters)"
+        )
     return pwd_context.hash(password)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
