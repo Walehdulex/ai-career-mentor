@@ -33,7 +33,7 @@ export const authAPI = {
 
 // Chat APIs
 export const chatAPI = {
-  sendMessage: (p0: { message: string; session_id: string | null }, p1: { headers: { Authorization: string } | { Authorization?: undefined } }, data: { message: string; session_id?: string} ) =>
+  sendMessage: (data: { message: string; session_id?: string }) =>
     apiClient.post('/api/chat', data),
   
   getSessions: () =>
@@ -78,7 +78,7 @@ export const profileAPI = {
   getProfile: () =>
     apiClient.get('/api/profile'),
   
-  updateProfile: (data: any) =>
+  updateProfile: (data: Record<string, unknown>) =>
     apiClient.put('/api/profile', data),
   
   getAnalytics: () =>
