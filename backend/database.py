@@ -6,11 +6,14 @@ import os
 
 #Database Setup
 # Load environment variable
-DATABASE_URL = os.getenv("DATABASE_URL", 
+DATABASE_URL = (
     "postgresql://postgres.ophvscnepuoluydaondw:c3K1Nnsut7SAVU4G"
     "@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
-    "?sslmode=require&prepared_statement_cache_size=0"
+    "?sslmode=require"
+    "&client_encoding=UTF8"
+    "&target_session_attrs=read-write"
 )
+
 
 
 # Render (and some other hosts) use "postgres://" — SQLAlchemy needs "postgresql://"
@@ -23,7 +26,7 @@ if DATABASE_URL.startswith("sqlite"):
         DATABASE_URL, connect_args={"check_same_thread": False}
     )
 else:
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # Session setup
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
