@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { chatAPI } from '../../../lib/apiService'  // ✅ ADDED: Import chatAPI
+import apiClient from '../../../lib/apiService'    // ✅ ADDED: Import apiClient for other endpoints
 
 interface Message {
   role: 'user' | 'ai'
@@ -46,22 +47,20 @@ export default function EnhancedChatPage() {
     loadChatSessions()
   }, [])
 
+  // ✅ UPDATED: Using chatAPI
   const loadChatSessions = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/chat/sessions', {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      })
+      const response = await chatAPI.getSessions()
       setSessions(response.data)
     } catch (error) {
       console.error('Error loading sessions:', error)
     }
   }
 
+  // ✅ UPDATED: Using chatAPI
   const loadChatHistory = async (sessionId: string) => {
     try {
-      const response = await axios.get(`http://localhost:8000/api/chat/sessions/${sessionId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      })
+      const response = await chatAPI.getSession(sessionId)
       setMessages(response.data.map((msg: any) => ({
         role: msg.role,
         content: msg.content,
@@ -80,13 +79,12 @@ export default function EnhancedChatPage() {
     setShowSidebar(false)
   }
 
+  // ✅ UPDATED: Using chatAPI
   const deleteSession = async (sessionId: string, event: React.MouseEvent) => {
     event.stopPropagation()
     
     try {
-      await axios.delete(`http://localhost:8000/api/chat/sessions/${sessionId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      })
+      await chatAPI.deleteSession(sessionId)
       setSessions(sessions.filter(s => s.session_id !== sessionId))
       
       if (currentSessionId === sessionId) {
@@ -97,6 +95,7 @@ export default function EnhancedChatPage() {
     }
   }
 
+  // ✅ UPDATED: Using apiClient (automatically includes base URL and auth)
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -117,10 +116,10 @@ export default function EnhancedChatPage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const uploadResponse = await axios.post('http://localhost:8000/api/upload-resume', formData, {
+      // ✅ UPDATED: Using apiClient
+      const uploadResponse = await apiClient.post('/api/upload-resume', formData, {
         headers: { 
-          'Content-Type': 'multipart/form-data',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          'Content-Type': 'multipart/form-data'
         }
       })
 
@@ -138,9 +137,8 @@ export default function EnhancedChatPage() {
       setMessages(prev => [...prev, userMessage])
 
       // Analyze resume
-      const analysisResponse = await axios.post('http://localhost:8000/api/analyze-resume', resumeData, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      })
+      // ✅ UPDATED: Using apiClient
+      const analysisResponse = await apiClient.post('/api/analyze-resume', resumeData)
 
       // Add AI response with analysis
       const aiMessage: Message = {
@@ -176,6 +174,7 @@ export default function EnhancedChatPage() {
     }
   }
 
+  // ✅ UPDATED: Using chatAPI
   const sendMessage = async () => {
     if (!input.trim()) return
 
@@ -188,11 +187,9 @@ export default function EnhancedChatPage() {
     setMessages(prev => [...prev, newUserMessage])
 
     try {
-      const response = await axios.post('http://localhost:8000/api/chat', {
+      const response = await chatAPI.sendMessage({
         message: userMessage,
-        session_id: currentSessionId
-      }, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
+        session_id: currentSessionId || undefined
       })
 
       // Add AI response to chat
