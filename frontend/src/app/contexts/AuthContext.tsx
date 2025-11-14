@@ -1,7 +1,7 @@
 'use client'
 
 import React, {createContext, useContext, useState, useEffect}  from "react"
-import axios from "axios"
+import apiClient, { authAPI } from "../../../lib/apiService"  // ✅ Import apiClient
 
 interface User {
   id: number
@@ -56,19 +56,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Setting up axios interceptor for authentication
+  // Token is handled by apiClient interceptor, so we just need to set it
   useEffect(() => {
-    const interceptor = axios.interceptors.request.use(
-      (config) => {
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`
-        }
-        return config
-      },
-      (error) => Promise.reject(error)
-    )
-
-    return () => axios.interceptors.request.eject(interceptor)
+    if (token) {
+      localStorage.setItem('token', token)
+    } else {
+      localStorage.removeItem('token')
+    }
   }, [token])
 
   // Loading token and user from localStorage on mount
@@ -78,10 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const savedToken = localStorage.getItem('auth_token')
         if (savedToken) {
           setToken(savedToken)
-          // Verifying token and get user info
-          const response = await axios.get('http://localhost:8000/api/auth/me', {
-            headers: { Authorization: `Bearer ${savedToken}` }
-          })
+          localStorage.setItem('token', savedToken) // For apiClient interceptor
+          
+          // ✅ FIXED: Use authAPI instead of hardcoded URL
+          const response = await authAPI.getProfile()
           setUser(response.data)
           setUserProfile(response.data)
         }
@@ -89,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('Error loading auth:', error)
         // Token is invalid, clear it
         localStorage.removeItem('auth_token')
+        localStorage.removeItem('token')
         setToken(null)
       } finally {
         setIsLoading(false)
@@ -100,10 +95,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/auth/login', {
-        username,
-        password
-      })
+      // ✅ FIXED: Use authAPI instead of hardcoded URL
+      const response = await authAPI.login({ username, password })
 
       const { access_token, user: userData } = response.data
       
@@ -111,23 +104,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData)
       setUserProfile(userData)
       localStorage.setItem('auth_token', access_token)
-      localStorage.setItem('token', access_token) 
+      localStorage.setItem('token', access_token)
 
       return { success: true }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Login failed'
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error && 'response' in error 
+        ? (error as any).response?.data?.detail || 'Login failed'
+        : 'Login failed'
       return { success: false, error: errorMessage }
     }
   }
 
   const register = async (username: string, email: string, password: string, fullName: string) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/auth/register', {
+      // ✅ FIXED: Use authAPI instead of hardcoded URL
+      const response = await authAPI.register({
         username,
         email,
         password,
-        full_name: fullName,
-        role: 'job_seeker'
+        full_name: fullName
       })
 
       const { access_token, user: userData } = response.data
@@ -136,11 +131,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData)
       setUserProfile(userData)
       localStorage.setItem('auth_token', access_token)
-      localStorage.setItem('token', access_token) 
+      localStorage.setItem('token', access_token)
 
       return { success: true }
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Registration failed'
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error && 'response' in error 
+        ? (error as any).response?.data?.detail || 'Registration failed'
+        : 'Registration failed'
       return { success: false, error: errorMessage }
     }
   }
@@ -150,14 +147,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUserProfile(null)
     setToken(null)
     localStorage.removeItem('auth_token')
-    localStorage.removeItem('token') 
+    localStorage.removeItem('token')
   }
 
   const refreshUser = async () => {
     if (!token) return
     
     try {
-      const response = await axios.get('http://localhost:8000/api/auth/me')
+      // ✅ FIXED: Use authAPI instead of hardcoded URL
+      const response = await authAPI.getProfile()
       setUser(response.data)
       setUserProfile(response.data)
     } catch (error) {
@@ -171,19 +169,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await axios.patch(
-        'http://localhost:8000/api/auth/profile',
-        profileData
-      )
+      // ✅ FIXED: Use apiClient instead of hardcoded URL
+      const response = await apiClient.patch('/api/auth/profile', profileData)
       
       setUserProfile(response.data)
       // Also update user if the response includes user data
       if (response.data) {
         setUser(prev => prev ? { ...prev, ...response.data } : null)
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating profile:', error)
-      throw new Error(error.response?.data?.detail || 'Failed to update profile')
+      const errorMessage = error instanceof Error && 'response' in error 
+        ? (error as any).response?.data?.detail || 'Failed to update profile'
+        : 'Failed to update profile'
+      throw new Error(errorMessage)
     }
   }
 
