@@ -187,10 +187,12 @@ export default function EnhancedChatPage() {
     setMessages(prev => [...prev, newUserMessage])
 
     try {
-      const response = await chatAPI.sendMessage({
-        message: userMessage,
-        session_id: currentSessionId || undefined
-      })
+      // ✅ FIX: Only include session_id if it exists
+      const requestData = currentSessionId 
+        ? { message: userMessage, session_id: currentSessionId }
+        : { message: userMessage }
+
+      const response = await chatAPI.sendMessage(requestData)
 
       // Add AI response to chat
       const aiMessage: Message = { 
