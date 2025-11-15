@@ -8,12 +8,31 @@ export default function Home() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-6xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            AI Tech Career Mentor
-          </h1>
-          <p className="text-gray-600 mb-6">
-            Your AI-powered career companion for tech professionals
-          </p>
+          {/* Top Bar with Auth Buttons */}
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                AI Tech Career Mentor
+              </h1>
+              <p className="text-gray-600">
+                Your AI-powered career companion for tech professionals
+              </p>
+            </div>
+            
+            {/* Auth Buttons */}
+            <div className="flex gap-3">
+              <Link href="/login">
+                <button className="px-6 py-2 text-blue-600 font-medium border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
+                  Login
+                </button>
+              </Link>
+              <Link href="/register">
+                <button className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
+                  Sign Up
+                </button>
+              </Link>
+            </div>
+          </div>
           
           {/* Navigation Cards */}
           <div className="grid md:grid-cols-2 gap-6">
@@ -64,7 +83,7 @@ export default function Home() {
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
               <span className="text-purple-600 text-2xl">🎯</span>
             </div>
-            <h3 className="font-semibold mb-2">Job Matching</h3>
+            <h3 className="font-semibold mb-2 text-black">Job Matching</h3>
             <p className="text-gray-600 text-sm">AI-powered job recommendations based on your skills and experience.</p>
           </div>
           
@@ -72,7 +91,7 @@ export default function Home() {
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
               <span className="text-orange-600 text-2xl">🎤</span>
             </div>
-            <h3 className="font-semibold mb-2">Mock Interviews</h3>
+            <h3 className="font-semibold mb-2 text-black">Mock Interviews</h3>
             <p className="text-gray-600 text-sm">Practice interviews with AI feedback on your responses.</p>
           </div>
           
@@ -80,10 +99,10 @@ export default function Home() {
             <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center mb-4">
               <span className="text-pink-600 text-2xl">📈</span>
             </div>
-            <h3 className="font-semibold mb-2">Skills Tracking</h3>
+            <h3 className="font-semibold mb-2 text-black">Skills Tracking</h3>
             <p className="text-gray-600 text-sm">Track your learning progress and skill development over time.</p>
           </div>
-        </div>
+        </div>  
       </div>
     </div>
   )
