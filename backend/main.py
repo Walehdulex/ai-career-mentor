@@ -42,20 +42,35 @@ job_api_service = JobAPIService()
 matching_engine = JobMatchingEngine()
 
 
-
 async def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), 
+    authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ) -> Optional[int]:
-    if not credentials:
+    if not authorization:
         return None
+    
     try:
-        from auth import verify_token
-        token_data = verify_token(credentials)
-        user_id = token_data.get("sub")
-        return int(user_id) 
-    except: 
+        token = authorization.replace("Bearer ", "")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id") or payload.get("sub")
+        return int(user_id) if user_id else None
+    except:
         return None
+
+
+# async def get_current_user_optional(
+#     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security), 
+#     db: Session = Depends(get_db)
+# ) -> Optional[int]:
+#     if not credentials:
+#         return None
+#     try:
+#         from auth import verify_token
+#         token_data = verify_token(credentials)
+#         user_id = token_data.get("sub")
+#         return int(user_id) 
+#     except: 
+#         return None
 
 load_dotenv()
 
