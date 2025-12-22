@@ -1711,20 +1711,68 @@ async def create_application(
         "status": "applied"
     }
 
+# @app.get("/api/applications")
+# async def get_applications(
+#     status: Optional[str] = None,
+#     current_user_id: Optional[int] = Depends(get_current_user_id),
+#     db: Session = Depends(get_db)
+# ):
+#     """Get all user applications"""
+#     if not current_user_id or current_user_id == 'None':
+#         raise HTTPException(
+#             status_code=401, 
+#             detail="Authentication required")
+    
+#     try:
+#         user_id = int(current_user_id)
+#     except (ValueError, TypeError):
+#         raise HTTPException(status_code=401, detail="Invalid user ID")
+    
+#     query = db.query(JobApplication).filter(
+#         JobApplication.user_id == current_user_id
+#     )
+    
+#     if status:
+#         query = query.filter(JobApplication.status == status)
+    
+#     applications = query.order_by(desc(JobApplication.applied_date)).all()
+    
+#     result = []
+#     for app in applications:
+#         job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+#         if job:
+#             # Build next step message based on what fields exist
+#             next_step = "Awaiting response"
+#             if hasattr(app, 'user_notes') and app.user_notes:
+#                 next_step = app.user_notes
+#             elif hasattr(app, 'interview_scheduled') and app.interview_scheduled:
+#                 next_step = f"Interview scheduled for {app.interview_scheduled.strftime('%Y-%m-%d')}"
+            
+#             result.append({
+#                 "id": app.id,
+#                 "jobTitle": job.title,
+#                 "company": job.company_name,
+#                 "status": app.status,
+#                 "appliedDate": app.applied_date.strftime("%Y-%m-%d"),
+#                 "nextStep": next_step,
+#                 "interview_date": app.interview_scheduled.isoformat() if hasattr(app, 'interview_scheduled') and app.interview_scheduled else None
+#             })
+    
+#     return result
+
 @app.get("/api/applications")
 async def get_applications(
     status: Optional[str] = None,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: Optional[int] = Depends(get_current_user_optional),  # ✅ Use optional
     db: Session = Depends(get_db)
 ):
     """Get all user applications"""
-    if not current_user_id or current_user_id == 'None':
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
-    try:
-        user_id = int(current_user_id)
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=401, detail="Invalid user ID")
+    # ✅ Proper check for None
+    if current_user_id is None:
+        raise HTTPException(
+            status_code=401, 
+            detail="Authentication required"
+        )
     
     query = db.query(JobApplication).filter(
         JobApplication.user_id == current_user_id
@@ -1739,7 +1787,6 @@ async def get_applications(
     for app in applications:
         job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
         if job:
-            # Build next step message based on what fields exist
             next_step = "Awaiting response"
             if hasattr(app, 'user_notes') and app.user_notes:
                 next_step = app.user_notes
