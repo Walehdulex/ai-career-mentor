@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import axios from 'axios'
+import { apiClient } from '../../../lib/api'
 
 interface CoverLetterResult {
   cover_letter: string
@@ -41,7 +42,7 @@ export default function CoverLetterGenerator({ resumeData }: CoverLetterGenerato
     setResult(null)
 
     try {
-      const response = await axios.post('http://localhost:8000/api/generate-cover-letter', {
+      const response = await apiClient.post('/api/generate-cover-letter', {
         resume_data: resumeData,
         job_description: jobDescription,
         company_name: companyName,
@@ -75,7 +76,7 @@ export default function CoverLetterGenerator({ resumeData }: CoverLetterGenerato
   const downloadAsDocx = async (content: string, filename: string, docType: string) => {
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/generate-${docType}-docx`,
+        `${apiClient.defaults.baseURL}/api/generate-${docType}-docx`,
         {
           content: content,
           filename: filename,

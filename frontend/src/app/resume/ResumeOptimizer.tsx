@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import axios from 'axios'
+import { apiClient } from '../../../lib/api'
 
 interface OptimizationResult {
   optimized_resume: string
@@ -43,7 +44,7 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
     setResult(null)
 
     try {
-      const response = await axios.post('http://localhost:8000/api/optimize-resume', {
+      const response = await apiClient.post('/api/optimize-resume', {
         resume_data: resumeData,
         job_description: jobDescription,
         company_name: companyName,
@@ -76,7 +77,7 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
   const downloadAsDocx = async (content: string, filename: string, docType: string) => {
     try {
       const response = await axios.post(
-        `http://localhost:8000/api/generate-${docType}-docx`,
+        `${apiClient.defaults.baseURL}/api/generate-${docType}-docx`,
         {
           content: content,
           filename: filename,

@@ -5,6 +5,7 @@ import React, { useState } from 'react'
 import axios from 'axios'
 import CoverLetterGenerator from './CoverLetterGenerator'
 import ResumeOptimizer from './ResumeOptimizer'
+import { apiClient } from "../../../lib/api"
 
 
 interface UploadedResumeData {
@@ -79,7 +80,7 @@ const handleFileUpload = async (file: File) => {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await axios.post('http://localhost:8000/api/upload-resume', formData, {
+      const response = await apiClient.post('/api/upload-resume', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
@@ -101,7 +102,7 @@ const handleFileUpload = async (file: File) => {
   const analyzeResume = async (resumeData: UploadedResumeData['data']) => {
     setAnalyzing(true)
     try {
-      const response = await axios.post('http://localhost:8000/api/analyze-resume', resumeData)
+      const response = await apiClient.post('/api/analyze-resume', resumeData)
       setAnalysis(response.data)
     } catch (error: any) {
       console.error('Analysis error:', error)
