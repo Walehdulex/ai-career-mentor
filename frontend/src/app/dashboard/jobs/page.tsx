@@ -88,40 +88,7 @@ const formatJobDate = (dateString: string) => {
 export default function JobsPage() {
   const {user, isLoading } = useAuth()
   const router =useRouter()
-  
-  // ✅ Add mounted state to prevent SSR issues
   const [mounted, setMounted] = useState(false)
-  
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (mounted && !isLoading && !user) {
-      router.push('/login')
-    }
-  }, [mounted, user, isLoading, router])
-
-  useEffect(() => {
-    if (mounted && user) {
-      fetchJobs();
-      fetchApplications();
-    }
-  }, [mounted, user]);
-
-  // ✅ Don't render until mounted
-  if (!mounted || isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null
-  }
-  
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [activeTab, setActiveTab] = useState('recommended');
   const [searchQuery, setSearchQuery] = useState('');
@@ -141,6 +108,26 @@ export default function JobsPage() {
     experienceLevel: 'all',
     employmentType: 'all'
   });
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // ✅ Redirect to login if not authenticated
+  useEffect(() => {
+    if (mounted && !isLoading && !user) {
+      router.push('/login')
+    }
+  }, [mounted, isLoading, user, router])
+
+  // ✅ Fetch data only when user is available
+  useEffect(() => {
+    if (mounted && user) {
+      fetchJobs();
+      fetchApplications();
+    }
+  }, [mounted, user]);
+
   
   // ✅ Add auth check
   useEffect(() => {
@@ -155,6 +142,20 @@ export default function JobsPage() {
       fetchApplications();
     }
   }, [user]);
+
+  if (!mounted || isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null // Will redirect via useEffect
+  }
+
+  
 
   // ✅ Show loading while checking auth
   if (isLoading) {
@@ -1145,3 +1146,4 @@ function fetchApplications() {
   throw new Error('Function not implemented.');
 }
 
+  
