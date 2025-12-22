@@ -67,7 +67,11 @@ create_tables()
 #Enabling CORS for frontend connection
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://ai-career-mentor-kappa.vercel.app"], # Next.js default port
+    allow_origins=[
+        "https://ai-career-mentor-kappa.vercel.app",
+        "https://www.careermentorlab.com",
+        "https://careermentorlab.com"],
+      # Next.js default port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
