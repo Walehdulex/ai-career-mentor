@@ -141,7 +141,7 @@ export default function AdminPage() {
 
           {/* Results Display */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-black">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
                 <div>
@@ -158,7 +158,7 @@ export default function AdminPage() {
                 <CheckCircle className="w-5 h-5 text-green-600" />
                 Results
               </h3>
-              <pre className="bg-white p-4 rounded border border-gray-200 overflow-x-auto text-sm">
+              <pre className="bg-white p-4 rounded border border-gray-200 overflow-x-auto text-sm text-black">
                 {JSON.stringify(result, null, 2)}
               </pre>
 
