@@ -223,7 +223,7 @@ export default function JobPreferencesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-6 text-black">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Job Preferences</h1>
@@ -255,7 +255,7 @@ export default function JobPreferencesPage() {
                   onChange={(e) => setCustomSkill(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addSkill(customSkill)}
                   placeholder="Type a skill and press Enter"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
                 />
                 <button
                   onClick={() => addSkill(customSkill)}
@@ -298,13 +298,13 @@ export default function JobPreferencesPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
+              <label className="block text-sm font-medium mb-2">
                 Experience Level
               </label>
               <select
                 value={experienceLevel}
                 onChange={(e) => setExperienceLevel(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
               >
                 {EXPERIENCE_LEVELS.map(level => (
                   <option key={level} value={level}>{level}</option>
@@ -327,7 +327,7 @@ export default function JobPreferencesPage() {
                 onChange={(e) => setNewRole(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && addRole()}
                 placeholder="e.g. Full Stack Developer, Software Engineer"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
               />
               <button
                 onClick={addRole}
@@ -360,13 +360,13 @@ export default function JobPreferencesPage() {
             </h2>
             
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
+              <label className="block text-sm font-medium mb-2">
                 Remote Work Preference
               </label>
               <select
                 value={remotePreference}
                 onChange={(e) => setRemotePreference(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
               >
                 <option value="remote_only">Remote Only</option>
                 <option value="flexible">Flexible (Remote, Hybrid, or Onsite)</option>
@@ -375,7 +375,7 @@ export default function JobPreferencesPage() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
+              <label className="block text-sm font-medium mb-2 ">
                 Preferred Locations
               </label>
               <div className="flex gap-2 mb-3">
@@ -385,7 +385,7 @@ export default function JobPreferencesPage() {
                   onChange={(e) => setNewLocation(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && addLocation()}
                   placeholder="e.g. London, Manchester, Birmingham"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
                 />
                 <button
                   onClick={addLocation}
@@ -433,7 +433,7 @@ export default function JobPreferencesPage() {
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
+                <label className="block text-sm font-medium mb-2">
                   Minimum Salary
                 </label>
                 <input
@@ -441,11 +441,11 @@ export default function JobPreferencesPage() {
                   value={minSalary}
                   onChange={(e) => setMinSalary(e.target.value)}
                   placeholder="e.g. 50000"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
+                <label className="block text-sm font-medium mb-2">
                   Maximum Salary
                 </label>
                 <input
@@ -453,7 +453,7 @@ export default function JobPreferencesPage() {
                   value={maxSalary}
                   onChange={(e) => setMaxSalary(e.target.value)}
                   placeholder="e.g. 80000"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
                 />
               </div>
             </div>
