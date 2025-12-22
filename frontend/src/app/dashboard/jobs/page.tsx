@@ -5,6 +5,7 @@ import { Briefcase, MapPin, DollarSign, TrendingUp, Star, Bookmark, Filter, Sear
 import  { Calendar, FileText, Edit2} from 'lucide-react'
 import { useAuth } from '@/app/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { apiClient } from "../../../../lib/api"
 
 // ... (keep all your existing interfaces: Job, Application, etc.)
 
@@ -172,73 +173,64 @@ export default function JobsPage() {
   }
 
   const fetchJobs = async () => {
-    try {
-      setLoading(true);
-      // UPDATED: Request 100 jobs instead of 20
-      const response = await fetch(`${API_BASE_URL}/api/jobs/recommendations?limit=100&min_score=0`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const jobsList = data.recommendations.map((rec: any) => ({
-          id: rec.job.id,
-          title: rec.job.title,
-          company: rec.job.company_name,
-          location: rec.job.location,
-          remoteType: rec.job.remote_type,
-          salaryMin: rec.job.salary_min,
-          salaryMax: rec.job.salary_max,
-          experienceLevel: rec.job.experience_level,
-          employmentType: rec.job.employment_type,
-          postedDate: rec.job.posted_date,
-          matchScore: rec.match_score,
-          scores: rec.scores,
-          matchingSkills: rec.job.required_skills || [],
-          missingSkills: [],
-          description: rec.job.description,
-          companySize: rec.job.company_size,
-          industry: rec.job.industry,
-          application_url: rec.job.apply_url
-        }));
-        
-        setJobs(jobsList);
-        setTotalJobsCount(jobsList.length);
-        // 🔍 ADD THIS DEBUG LOG:
-        console.log('Total jobs:', jobsList.length);
-        console.log('Experience levels:', [...new Set(jobsList.map(j => j.experienceLevel))]);
-        console.log('Sample jobs:', jobsList.slice(0, 3).map((j: Job) => ({
-          title: j.title,
-          experience: j.experienceLevel
-        })));
-      } else {
-        console.error('Failed to fetch jobs');
+  try {
+    setLoading(true);
+    const response = await apiClient.get('/api/jobs/recommendations', {
+      params: {
+        limit: 100,
+        min_score: 0
       }
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-    } finally {
-      setLoading(false);
+    });
+
+    if (response.data?.recommendations) {
+      const jobsList = response.data.recommendations.map((rec: any) => ({
+        id: rec.job.id,
+        title: rec.job.title,
+        company: rec.job.company_name,
+        location: rec.job.location,
+        remoteType: rec.job.remote_type,
+        salaryMin: rec.job.salary_min,
+        salaryMax: rec.job.salary_max,
+        experienceLevel: rec.job.experience_level,
+        employmentType: rec.job.employment_type,
+        postedDate: rec.job.posted_date,
+        matchScore: rec.match_score,
+        scores: rec.scores,
+        matchingSkills: rec.job.required_skills || [],
+        missingSkills: [],
+        description: rec.job.description,
+        companySize: rec.job.company_size,
+        industry: rec.job.industry,
+        application_url: rec.job.apply_url
+      }));
+      
+      setJobs(jobsList);
+      setTotalJobsCount(jobsList.length);
+      console.log('Total jobs:', jobsList.length);
+      console.log('Experience levels:', [...new Set(jobsList.map(j => j.experienceLevel))]);
+      console.log('Sample jobs:', jobsList.slice(0, 3).map((j: Job) => ({
+        title: j.title,
+        experience: j.experienceLevel
+      })));
     }
+  } catch (error) {
+    console.error('Error fetching jobs:', error);
+    setJobs([]);
+  } finally {
+    setLoading(false);
+  }
   };
 
   const fetchApplications = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/applications`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setApplications(data);
-      }
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-    }
+  try {
+    const response = await apiClient.get('/api/applications')
+    setApplications(response.data)
+  } catch (error) {
+    console.error('Error fetching applications:', error)
+    setApplications([])
+  }
   };
+
 
   const toggleSaveJob = async (jobId: number) => {
     const newSaved = new Set(savedJobs);
