@@ -10,14 +10,56 @@ const apiClient = axios.create({
   },
 })
 
-// Add auth token to requests
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+// ✅ FIX: Add typeof window check for localStorage
+apiClient.interceptors.request.use(
+  (config) => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token')
+      
+      // Debug logging
+      console.log('🔑 Request to:', config.url)
+      console.log('🔑 Token exists:', !!token)
+      
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      } else {
+        console.warn('⚠️ No token found in localStorage')
+      }
+    }
+    return config
+  },
+  (error) => {
+    console.error('❌ Request error:', error)
+    return Promise.reject(error)
   }
-  return config
-})
+)
+
+// ✅ ADD: Response interceptor for better error handling
+apiClient.interceptors.response.use(
+  (response) => {
+    console.log('✅ Response:', response.config.url, response.status)
+    return response
+  },
+  (error) => {
+    console.error('❌ API Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      detail: error.response?.data?.detail,
+      message: error.message
+    })
+    
+    if (error.response?.status === 401) {
+      console.error('❌ 401 Unauthorized - Token invalid or missing')
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token')
+        // Optionally redirect to login
+        // window.location.href = '/login'
+      }
+    }
+    
+    return Promise.reject(error)
+  }
+)
 
 // Auth APIs
 export const authAPI = {
@@ -83,6 +125,27 @@ export const profileAPI = {
   
   getAnalytics: () =>
     apiClient.get('/api/profile/analytics'),
+}
+
+// ✅ ADD: Jobs APIs for your jobs page
+export const jobsAPI = {
+  getRecommendations: (params?: { limit?: number; min_score?: number }) =>
+    apiClient.get('/api/jobs/recommendations', { params }),
+  
+  getApplications: () =>
+    apiClient.get('/api/applications'),
+  
+  applyToJob: (jobId: number) =>
+    apiClient.post('/api/applications', { job_id: jobId }),
+  
+  updateApplication: (id: number, data: any) =>
+    apiClient.patch(`/api/applications/${id}`, data),
+  
+  saveJob: (jobId: number) =>
+    apiClient.post(`/api/jobs/${jobId}/save`),
+  
+  unsaveJob: (jobId: number) =>
+    apiClient.delete(`/api/jobs/${jobId}/unsave`),
 }
 
 export default apiClient

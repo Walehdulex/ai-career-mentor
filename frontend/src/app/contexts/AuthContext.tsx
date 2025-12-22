@@ -94,25 +94,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const login = async (username: string, password: string) => {
-    try {
-      // ✅ FIXED: Use authAPI instead of hardcoded URL
-      const response = await authAPI.login({ username, password })
-
-      const { access_token, user: userData } = response.data
-      
-      setToken(access_token)
-      setUser(userData)
-      setUserProfile(userData)
-      localStorage.setItem('auth_token', access_token)
-      localStorage.setItem('token', access_token)
-
-      return { success: true }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error && 'response' in error 
-        ? (error as any).response?.data?.detail || 'Login failed'
-        : 'Login failed'
-      return { success: false, error: errorMessage }
-    }
+  try {
+    console.log('🔐 Attempting login for:', username)
+    
+    const response = await authAPI.login({ username, password })
+    
+    console.log('📥 Login response:', response.data)
+    
+    const { access_token, user: userData } = response.data
+    
+    // ✅ Debug: Check if token is valid
+    console.log('🔑 Access token received:', access_token ? 'YES' : 'NO')
+    console.log('🔑 Token length:', access_token?.length)
+    console.log('🔑 Token preview:', access_token?.substring(0, 50) + '...')
+    console.log('👤 User data:', userData)
+    
+    // Store token
+    setToken(access_token)
+    setUser(userData)
+    setUserProfile(userData)
+    localStorage.setItem('auth_token', access_token)
+    localStorage.setItem('token', access_token)
+    
+    // ✅ Verify token was saved
+    const savedToken = localStorage.getItem('token')
+    console.log('✅ Token saved to localStorage:', savedToken ? 'YES' : 'NO')
+    console.log('✅ Saved token matches:', savedToken === access_token)
+    
+    // ✅ Wait a moment for state to update
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    return { success: true }
+  } catch (error: unknown) {
+    console.error('❌ Login error:', error)
+    const errorMessage = error instanceof Error && 'response' in error 
+      ? (error as any).response?.data?.detail || 'Login failed'
+      : 'Login failed'
+    console.error('❌ Error message:', errorMessage)
+    return { success: false, error: errorMessage }
+  }
   }
 
   const register = async (username: string, email: string, password: string, fullName: string) => {

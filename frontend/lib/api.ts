@@ -2,7 +2,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default API_URL;
 
-// Optional: Create axios instance with base URL
 import axios from 'axios';
 
 export const apiClient = axios.create({
@@ -12,14 +11,20 @@ export const apiClient = axios.create({
   },
 });
 
-// Add request interceptor for auth token
+// request interceptor for auth token
 apiClient.interceptors.request.use(
   (config) => {
     // Checking if we're on the client side before accessing localStorage
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
+
+      console.log('🔑 [api.ts] Request to:', config.url);
+      console.log('🔑 [api.ts] Token exists:', !!token);
+
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+      }  else {
+        console.warn('⚠️ [api.ts] No token found');
       }
     }
     return config;
@@ -29,16 +34,20 @@ apiClient.interceptors.request.use(
   }
 );
 
+
 // Response interceptor to handle 401 errors gracefully
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error('❌ [api.ts] Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      detail: error.response?.data?.detail
+    });
+    
     if (error.response?.status === 401) {
-      // Clear invalid token
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
-        // Optionally redirect to login
-        // window.location.href = '/login';
       }
     }
     return Promise.reject(error);

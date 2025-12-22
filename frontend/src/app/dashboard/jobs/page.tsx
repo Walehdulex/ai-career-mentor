@@ -148,12 +148,33 @@ export default function JobsPage() {
   const fetchJobs = async () => {
   try {
     setLoading(true);
+    
+    // ✅ CRITICAL DEBUG: Check token before making request
+    const token = localStorage.getItem('token');
+    const authToken = localStorage.getItem('auth_token');
+    
+    console.log('📊 Fetching jobs...')
+    console.log('🌐 API URL:', process.env.NEXT_PUBLIC_API_URL)
+    console.log('🔑 token exists:', !!token)
+    console.log('🔑 auth_token exists:', !!authToken)
+    console.log('🔑 token length:', token?.length)
+    console.log('🔑 token preview:', token?.substring(0, 50) + '...')
+    
+    if (!token) {
+      console.error('❌ No token found - redirecting to login')
+      router.push('/login')
+      return
+    }
+    
     const response = await apiClient.get('/api/jobs/recommendations', {
       params: {
         limit: 100,
         min_score: 0
       }
     });
+
+    console.log('✅ Jobs response status:', response.status)
+    console.log('✅ Jobs data:', response.data)
 
     if (response.data?.recommendations) {
       const jobsList = response.data.recommendations.map((rec: any) => ({
@@ -179,20 +200,28 @@ export default function JobsPage() {
       
       setJobs(jobsList);
       setTotalJobsCount(jobsList.length);
-      console.log('Total jobs:', jobsList.length);
-      console.log('Experience levels:', [...new Set(jobsList.map(j => j.experienceLevel))]);
-      console.log('Sample jobs:', jobsList.slice(0, 3).map((j: Job) => ({
-        title: j.title,
-        experience: j.experienceLevel
-      })));
+      console.log('✅ Jobs loaded:', jobsList.length)
     }
-  } catch (error) {
-    console.error('Error fetching jobs:', error);
+  } catch (error: any) {
+    console.error('❌ Error fetching jobs:', error);
+    console.error('❌ Error response:', error.response);
+    console.error('❌ Error status:', error.response?.status);
+    console.error('❌ Error detail:', error.response?.data?.detail);
+    
     setJobs([]);
+    
+    if (error.response?.status === 401) {
+      alert('Your session has expired. Please log in again.');
+      localStorage.removeItem('token')
+      localStorage.removeItem('auth_token')
+      router.push('/login')
+    } else {
+      alert('Failed to load jobs. Please try again.')
+    }
   } finally {
     setLoading(false);
   }
-  };
+};
 
   const fetchApplications = async () => {
   try {
