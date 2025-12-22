@@ -148,7 +148,7 @@ export default function JobsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        const jobsList: Job[] = data.recommendations.map((rec: any) => ({
+        const jobsList = data.recommendations.map((rec: any) => ({
           id: rec.job.id,
           title: rec.job.title,
           company: rec.job.company_name,
