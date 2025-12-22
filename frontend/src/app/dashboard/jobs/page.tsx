@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { Briefcase, MapPin, DollarSign, TrendingUp, Star, Bookmark, Filter, Search, X, Check, Building2, Clock, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import  { Calendar, FileText, Edit2} from 'lucide-react'
+import { useAuth } from '@/app/contexts/AuthContext';
+import { useRouter } from 'next/router';
 
 // ... (keep all your existing interfaces: Job, Application, etc.)
 
@@ -84,6 +86,8 @@ const formatJobDate = (dateString: string) => {
 };
 
 export default function JobsPage() {
+  const {user, isLoading } = useAuth()
+  const router =useRouter()
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [activeTab, setActiveTab] = useState('recommended');
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,11 +108,33 @@ export default function JobsPage() {
     employmentType: 'all'
   });
   
+  // ✅ Add auth check
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login')
+    }
+  }, [user, isLoading, router])
 
   useEffect(() => {
-    fetchJobs();
-    fetchApplications();
-  }, []);
+    if (user) { // ✅ Only fetch if user exists
+      fetchJobs();
+      fetchApplications();
+    }
+  }, [user]);
+
+  // ✅ Show loading while checking auth
+  if (isLoading) {
+    return (
+      <div className='flex items-center justify-center h-screen'>
+        <div className='animate-spin rounded-full h-12 w-12 border-b-12 border-blue-500'></div>
+      </div>
+    )
+  }
+
+  // ✅ Don't render if no user
+  if (!user) {
+    return null
+  }
 
   const fetchJobs = async () => {
     try {
@@ -122,7 +148,7 @@ export default function JobsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        const jobsList = data.recommendations.map((rec: any) => ({
+        const jobsList: Job[] = data.recommendations.map((rec: any) => ({
           id: rec.job.id,
           title: rec.job.title,
           company: rec.job.company_name,
@@ -148,7 +174,7 @@ export default function JobsPage() {
         // 🔍 ADD THIS DEBUG LOG:
         console.log('Total jobs:', jobsList.length);
         console.log('Experience levels:', [...new Set(jobsList.map(j => j.experienceLevel))]);
-        console.log('Sample jobs:', jobsList.slice(0, 3).map(j => ({
+        console.log('Sample jobs:', jobsList.slice(0, 3).map((j: Job) => ({
           title: j.title,
           experience: j.experienceLevel
         })));
