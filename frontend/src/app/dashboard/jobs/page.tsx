@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Briefcase, MapPin, DollarSign, TrendingUp, Star, Bookmark, Filter, Search, X, Check, Building2, Clock, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import  { Calendar, FileText, Edit2} from 'lucide-react'
 import { useAuth } from '@/app/contexts/AuthContext';
-import { useRouter } from 'next/router';
+import { useRouter } from 'next/navigation';
 
 // ... (keep all your existing interfaces: Job, Application, etc.)
 
@@ -88,6 +88,40 @@ const formatJobDate = (dateString: string) => {
 export default function JobsPage() {
   const {user, isLoading } = useAuth()
   const router =useRouter()
+  
+  // ✅ Add mounted state to prevent SSR issues
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (mounted && !isLoading && !user) {
+      router.push('/login')
+    }
+  }, [mounted, user, isLoading, router])
+
+  useEffect(() => {
+    if (mounted && user) {
+      fetchJobs();
+      fetchApplications();
+    }
+  }, [mounted, user]);
+
+  // ✅ Don't render until mounted
+  if (!mounted || isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return null
+  }
+  
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [activeTab, setActiveTab] = useState('recommended');
   const [searchQuery, setSearchQuery] = useState('');
