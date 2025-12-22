@@ -7,7 +7,6 @@ import { useAuth } from '@/app/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { apiClient } from "../../../../lib/api"
 
-// ... (keep all your existing interfaces: Job, Application, etc.)
 
 interface Job {
   id: number;
@@ -89,7 +88,8 @@ const formatJobDate = (dateString: string) => {
 export default function JobsPage() {
   const {user, isLoading } = useAuth()
   const router =useRouter()
-  const [mounted, setMounted] = useState(false)
+
+  
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [activeTab, setActiveTab] = useState('recommended');
   const [searchQuery, setSearchQuery] = useState('');
@@ -109,26 +109,6 @@ export default function JobsPage() {
     experienceLevel: 'all',
     employmentType: 'all'
   });
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // ✅ Redirect to login if not authenticated
-  useEffect(() => {
-    if (mounted && !isLoading && !user) {
-      router.push('/login')
-    }
-  }, [mounted, isLoading, user, router])
-
-  // ✅ Fetch data only when user is available
-  useEffect(() => {
-    if (mounted && user) {
-      fetchJobs();
-      fetchApplications();
-    }
-  }, [mounted, user]);
-
   
   // ✅ Add auth check
   useEffect(() => {
@@ -144,20 +124,6 @@ export default function JobsPage() {
     }
   }, [user]);
 
-  if (!mounted || isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return null // Will redirect via useEffect
-  }
-
-  
-
   // ✅ Show loading while checking auth
   if (isLoading) {
     return (
@@ -167,6 +133,13 @@ export default function JobsPage() {
     )
   }
 
+ 
+  if (!user) {
+    return null // Will redirect via useEffect
+  }
+
+  
+  
   // ✅ Don't render if no user
   if (!user) {
     return null
