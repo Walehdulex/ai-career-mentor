@@ -624,7 +624,7 @@ export default function JobsPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Experience Level</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2 text-black">Experience Level</label>
                     <select
                       value={filters.experienceLevel}
                       onChange={(e) => setFilters({ ...filters, experienceLevel: e.target.value })}

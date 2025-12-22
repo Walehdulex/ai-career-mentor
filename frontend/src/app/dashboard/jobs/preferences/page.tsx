@@ -298,7 +298,7 @@ export default function JobPreferencesPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
                 Experience Level
               </label>
               <select
@@ -320,7 +320,7 @@ export default function JobPreferencesPage() {
               Desired Job Roles
             </h2>
             
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-3 text-black">
               <input
                 type="text"
                 value={newRole}
@@ -360,7 +360,7 @@ export default function JobPreferencesPage() {
             </h2>
             
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
                 Remote Work Preference
               </label>
               <select
@@ -375,7 +375,7 @@ export default function JobPreferencesPage() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
                 Preferred Locations
               </label>
               <div className="flex gap-2 mb-3">
@@ -395,7 +395,7 @@ export default function JobPreferencesPage() {
                 </button>
               </div>
               
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-2 mb-4 text-black">
                 {preferredLocations.map(location => (
                   <span
                     key={location}
@@ -433,7 +433,7 @@ export default function JobPreferencesPage() {
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
                   Minimum Salary
                 </label>
                 <input
@@ -445,7 +445,7 @@ export default function JobPreferencesPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2 text-black">
                   Maximum Salary
                 </label>
                 <input
