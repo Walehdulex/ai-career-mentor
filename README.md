@@ -493,22 +493,7 @@ npm test
 3. Add environment variables
 4. Deploy
 
-## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### Development Guidelines
-- Follow PEP 8 for Python code
-- Use TypeScript for all React components
-- Write meaningful commit messages
-- Add tests for new features
-- Update documentation
 
 ## 📝 License
 
@@ -552,6 +537,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [ ] Mentorship matching
 
 ---
+
+## License
+
+Copyright (c) 2025 ABDULLAHI - AI Career Mentor. All Rights Reserved.
+
+This software is proprietary and confidential. Unauthorized copying, 
+distribution, or use is strictly prohibited.
 
 **Created and Developed by ABDULLAHI**
 
