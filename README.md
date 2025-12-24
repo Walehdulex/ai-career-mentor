@@ -74,19 +74,8 @@
 ### Screenshots
 
 **Dashboard**
-```
+![alt text](image.png)
 
-┌─────────────────────────────────────────────────┐
-│  Welcome back, John! 👋                         │
-│  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐       │
-│  │  12  │  │   5  │  │   3  │  │  45  │       │
-│  │Chats │  │Resume│  │Cover │  │ Jobs │       │
-│  └──────┘  └──────┘  └──────┘  └──────┘       │
-│                                                 │
-│  Quick Actions:                                 │
-│  [Analyze Resume] [Career Chat] [Find Jobs]    │
-└─────────────────────────────────────────────────┘
-```
 
 ## 🛠 Tech Stack
 
@@ -117,20 +106,20 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                     Frontend (Next.js)                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │  Dashboard   │  │  Chat Page   │  │  Job Search  │ │
-│  └──────────────┘  └──────────────┘  └──────────────┘ │
+│                     Frontend (Next.js)                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │  Dashboard   │  │  Chat Page   │  │  Job Search  │   │
+│  └──────────────┘  └──────────────┘  └──────────────┘   │
 └────────────────────────┬────────────────────────────────┘
                          │ REST API (HTTPS)
 ┌────────────────────────▼────────────────────────────────┐
-│                    Backend (FastAPI)                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │   Auth API   │  │   Chat API   │  │   Jobs API   │ │
-│  └──────────────┘  └──────────────┘  └──────────────┘ │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │  Resume API  │  │  Profile API │  │  Match Engine│ │
-│  └──────────────┘  └──────────────┘  └──────────────┘ │
+│                    Backend (FastAPI)                    │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │   Auth API   │  │   Chat API   │  │   Jobs API   │   │
+│  └──────────────┘  └──────────────┘  └──────────────┘   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │  Resume API  │  │  Profile API │  │  Match Engine│   │
+│  └──────────────┘  └──────────────┘  └──────────────┘   │
 └────────────────────────┬────────────────────────────────┘
                          │
         ┌────────────────┼────────────────┐
@@ -184,7 +173,7 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/ai-career-mentor.git
+git clone https://github.com/Walehdulex/ai-career-mentor.git
 cd ai-career-mentor
 ```
 
@@ -198,8 +187,10 @@ cd backend
 python -m venv venv
 
 # Activate virtual environment
+
 # On Windows:
 venv\Scripts\activate
+
 # On Mac/Linux:
 source venv/bin/activate
 
@@ -360,43 +351,83 @@ For complete API documentation, visit `http://localhost:8000/docs` when running 
 
 ```
 ai-career-mentor/
+│
 ├── backend/
-│   ├── main.py                      # FastAPI application entry point
-│   ├── database.py                  # Database models and connection
-│   ├── models.py                    # SQLAlchemy models
-│   ├── auth.py                      # Authentication utilities
-│   ├── enhanced_resume_parser.py   # Resume parsing logic
-│   ├── job_api_service.py          # Job API integrations
-│   ├── job_matching.py             # Matching algorithm
-│   ├── requirements.txt            # Python dependencies
-│   ├── .env                        # Environment variables
-│   └── uploads/                    # Uploaded files directory
+│   ├── .venv/                          # Virtual environment
+│   ├── __pycache__/                    # Python cache
+│   ├── tests/                          # Test files
+│   ├── uploads/
+│   │   └── resumes/                    # Uploaded resume storage
+│   ├── __init__.py                     # Package initializer
+│   ├── .career_mentor.db               # SQLite database (dev)
+│   ├── .env                            # Environment variables (local)
+│   ├── .gitignore                      # Git ignore rules
+│   ├── auth.py                         # JWT authentication & user management
+│   ├── career_mentor.db                # Main SQLite database
+│   ├── database.py                     # Database configuration & session
+│   ├── email_service.py                # Email notification service
+│   ├── enhanced_resume_parser.py       # AI-powered resume parsing
+│   ├── fix_jobs.py                     # Job data cleanup utilities
+│   ├── job_api_service.py              # Adzuna API integration
+│   ├── job_matching.py                 # 5-factor matching algorithm
+│   ├── main.py                         # FastAPI application entry point
+│   ├── migrate_database.py             # Database migration scripts
+│   ├── render.yaml                     # Render deployment config
+│   ├── requirements.txt                # Python dependencies
+│   ├── resume_parser.py                # Resume extraction logic
+│   └── test_matching.py                # Matching algorithm tests
 │
 ├── frontend/
+│   ├── .next/                          # Next.js build output
+│   ├── lib/                            # Utility libraries
+│   ├── node_modules/                   # NPM dependencies
+│   ├── public/                         # Static assets
 │   ├── src/
-│   │   ├── app/                    # Next.js app directory
-│   │   │   ├── auth/              # Authentication pages
-│   │   │   ├── chat/              # Chat interface
-│   │   │   ├── dashboard/         # User dashboard
-│   │   │   ├── profile/           # User profile
-│   │   │   ├── resume/            # Resume features
-│   │   │   ├── layout.tsx         # Root layout
-│   │   │   └── page.tsx           # Home page
-│   │   ├── components/            # React components
-│   │   │   ├── AuthForms.tsx     # Login/Register forms
-│   │   │   ├── Header.tsx        # Navigation header
-│   │   │   ├── ProtectedRoute.tsx # Route protection
-│   │   │   └── UserDashboard.tsx # Dashboard component
-│   │   └── contexts/              # React contexts
-│   │       └── AuthContext.tsx   # Authentication context
-│   ├── public/                    # Static assets
-│   ├── package.json              # Node dependencies
-│   ├── tsconfig.json            # TypeScript config
-│   └── .env.local              # Frontend environment
+│   │   ├── app/
+│   │   │   ├── admin/                  # Admin dashboard
+│   │   │   ├── auth/                   # Authentication pages
+│   │   │   ├── chat/                   # AI chat interface
+│   │   │   ├── components/
+│   │   │   │   ├── auth/               # Auth components
+│   │   │   │   ├── layout/             # Layout components
+│   │   │   │   ├── AuthForms.tsx       # Login/Register forms
+│   │   │   │   ├── DashboardNav.tsx    # Navigation component
+│   │   │   │   └── UserDashboard.tsx   # Main dashboard component
+│   │   │   ├── contexts/               # React contexts
+│   │   │   ├── dashboard/
+│   │   │   │   ├── alerts/             # Job alerts management
+│   │   │   │   ├── jobs/               # Job listings & search
+│   │   │   │   ├── resumes/            # Resume management
+│   │   │   │   ├── layout.tsx          # Dashboard layout
+│   │   │   │   └── page.tsx            # Dashboard home (2 issues)
+│   │   │   ├── login/                  # Login page
+│   │   │   ├── profile/                # User profile
+│   │   │   ├── register/               # Registration page
+│   │   │   ├── resume/                 # Resume upload/analysis
+│   │   │   ├── test-api/               # API testing page
+│   │   │   ├── favicon.ico             # Site favicon
+│   │   │   ├── globals.css             # Global styles
+│   │   │   ├── layout.tsx              # Root layout
+│   │   │   └── page.tsx                # Home page
+│   │   ├── .env.local                  # Local environment variables
+│   │   ├── .env.production             # Production environment variables
+│   │   ├── .gitignore                  # Git ignore rules
+│   │   ├── eslint.config.mjs           # ESLint configuration
+│   │   ├── next-env.d.ts               # Next.js TypeScript declarations
+│   │   ├── next.config.js              # Next.js configuration
+│   │   ├── next.config.ts              # Next.js TypeScript config
+│   │   ├── package-lock.json           # NPM lock file
+│   │   ├── package.json                # NPM dependencies & scripts
+│   │   ├── postcss.config.mjs          # PostCSS configuration
+│   │   ├── README.md                   # Frontend documentation
+│   │   ├── tsconfig.json               # TypeScript configuration
+│   │   ├── vercel.json                 # Vercel deployment config
+│   │   ├── .gitignore                  # Additional git ignore
+│   │   ├── image.png                   # Project image (U)
+│   │   ├── README.md                   # Root documentation (M)
+│   │   └── requirements.txt            # Additional requirements
 │
-├── .gitignore
-├── README.md
-└── LICENSE
+└── README.md                           # Main project documentation
 ```
 
 ## 🔑 Key Features Implementation
@@ -495,26 +526,26 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Developer:** Dulex  
 **Email:** your.email@example.com  
-**LinkedIn:** [linkedin.com/in/yourprofile](https://linkedin.com/in/yourprofile)  
-**Project Link:** [github.com/yourusername/ai-career-mentor](https://github.com/yourusername/ai-career-mentor)
+**LinkedIn:** [linkedin.com/in/yourprofile](https://www.linkedin.com/in/abdullahi-a-37a0b4109/)  
+**Project Link:** [github.com/Walehdulex/ai-career-mentor](https://github.com/Walehdulex/ai-career-mentor)
 
 ---
 
-## 🗺 Roadmap
+## 🗺 Roadmap for the future
 
-### Q1 2025
+### Q1 2026
 - [ ] Mock interview simulator with voice recognition
 - [ ] LinkedIn profile optimization
 - [ ] Company culture matching
 - [ ] Mobile app (React Native)
 
-### Q2 2025
+### Q2 2026
 - [ ] Salary negotiation coach
 - [ ] Career path predictor using ML
 - [ ] Integration with more job boards
 - [ ] Team/enterprise features
 
-### Q3 2025
+### Q3 2026
 - [ ] Video interview practice
 - [ ] Skill gap analysis with course recommendations
 - [ ] Networking event finder
@@ -522,6 +553,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Made with ❤️ by Dulex**
+**Created and Developed by ABDULLAHI**
 
 *Building the future of AI-powered career development*
