@@ -819,52 +819,72 @@ async def optimize_resume(
         
         # Create professional template optimization prompt
         optimization_prompt = f"""
-        You are an expert resume writer. Create a concise, 1-page optimized resume for {request.position_title} at {request.company_name} using the ACTUAL candidate information provided.
+        You are an expert resume writer. Create a professionally formatted, ATS-optimized resume for {request.position_title} at {request.company_name}.
 
-        ## CANDIDATE'S ACTUAL INFORMATION:
-        Name: Extract from resume or use "Professional Candidate" if not clear
-        Email: {contact_info.get('email', 'email@example.com')}
-        Phone: {contact_info.get('phone', 'phone number')}
-        LinkedIn: {contact_info.get('linkedin', 'Available on request')}
-        GitHub: {contact_info.get('github', 'Available on request')}
+        ## CANDIDATE'S INFORMATION:
+        Contact: {contact_info.get('email', 'email@example.com')} | {contact_info.get('phone', 'phone')}
+        LinkedIn: {contact_info.get('linkedin', 'linkedin.com/in/profile')} | GitHub: {contact_info.get('github', 'github.com/username')}
 
-        Current Skills: {current_skills}
-        Experience: {experience_summary[:500] if experience_summary else 'Software development experience'}
-        Education: {', '.join([f"{edu.get('degree', 'Degree')} from {edu.get('institution', 'University')}" for edu in education]) if education else 'Computer Science education'}
+        Current Skills: {current_skills[:500]}
+        Experience Summary: {experience_summary[:800]}
+        Education: {', '.join([f"{edu.get('degree', 'Degree')} from {edu.get('institution', 'University')}" for edu in education])[:200]}
 
-        ## TARGET JOB REQUIREMENTS:
+        ## TARGET JOB:
         {request.job_description[:1000]}
 
-        ## OUTPUT REQUIREMENTS:
-        - Use REAL candidate information, not placeholders
-        - Maximum 600 words total
-        - Professional Summary: 2-3 lines targeting this specific role
-        - Experience: Use candidate's ACTUAL job titles and companies
-        - Projects: Use candidate's ACTUAL projects
-        - Skills: Use candidate's ACTUAL skills, prioritized for this job
+        ## FORMATTING REQUIREMENTS (CRITICAL):
+        1. Start with candidate's full name in ALL CAPS on first line
+        2. Second line: Contact info separated by " | " (pipe symbol)
+        3. Third line: LinkedIn | GitHub links
+        4. Use these EXACT section headers in ALL CAPS:
+        - PROFESSIONAL SUMMARY
+        - CORE SKILLS
+        - PROFESSIONAL EXPERIENCE
+        - KEY PROJECTS (if applicable)
+        - EDUCATION
 
-        ## TEMPLATE:
+        5. For EXPERIENCE section format EXACTLY like this:
+        Job Title | Company Name | Dates
+        - Bullet point 1
+        - Bullet point 2
+        - Bullet point 3
 
-        **[Use actual candidate name or "PROFESSIONAL CANDIDATE"]**
+        6. Keep total length under 600 words
+        7. Use bullet points (-) not asterisks
+        8. No markdown formatting (no **, no #)
+        9. Separate sections with blank lines
 
-        **{contact_info.get('email', 'email@example.com')} | {contact_info.get('phone', 'phone')} | United Kingdom | LinkedIn | GitHub**
+        ## EXAMPLE FORMAT:
+        JOHN DEVELOPER
+        john.dev@email.com | +44 7700 900000 | London, UK
+        linkedin.com/in/johndev | github.com/johndev
 
-        **PROFESSIONAL SUMMARY**
-        [2-3 lines specifically targeting {request.position_title} using candidate's actual background and skills relevant to this job]
+        PROFESSIONAL SUMMARY
+        Results-driven Software Engineer with 5+ years experience building scalable web applications. Expertise in React, Node.js, and cloud architecture. Proven track record delivering high-impact projects for Fortune 500 companies.
 
-        **CORE SKILLS**
-        [Organize candidate's actual skills by relevance to job posting]
+        CORE SKILLS
+        Languages: JavaScript, TypeScript, Python, Java
+        Frameworks: React, Next.js, Node.js, Express, Django
+        Tools: Docker, Kubernetes, AWS, Git, Jenkins
+        Methodologies: Agile, Scrum, TDD, CI/CD
 
-        **EXPERIENCE** 
-        [Use candidate's ACTUAL job history - select 2-3 most relevant positions with real titles, companies, and dates]
+        PROFESSIONAL EXPERIENCE
+        Senior Software Engineer | Tech Company | Jan 2021 - Present
+        - Led development of microservices architecture serving 2M+ users
+        - Reduced API response time by 40% through optimization
+        - Mentored team of 5 junior developers
 
-        **PROJECTS**
-        [Use candidate's ACTUAL projects - select 2 most relevant with real project names and technologies]
+        Software Engineer | Previous Company | Jun 2018 - Dec 2020
+        - Built React-based dashboard handling 100K+ daily transactions
+        - Implemented automated testing increasing code coverage to 90%
+        - Collaborated with product team on feature prioritization
 
-        **EDUCATION**
-        [Use candidate's actual education with real degree, institution, and relevant modules]
+        EDUCATION
+        Bachelor of Science in Computer Science | University Name | 2018
+        Relevant Coursework: Data Structures, Algorithms, Web Development
 
-        Use the candidate's REAL information throughout - no placeholders or generic content.
+        ## YOUR OUTPUT:
+        Generate resume following EXACT format above. Use candidate's REAL information. Make it specific to {request.position_title} role. Include relevant keywords from job description naturally.
         """
         
         response = client.chat.completions.create(

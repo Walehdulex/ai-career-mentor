@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { apiClient } from '../../../lib/api'
+import { ProfessionalResumeDisplay } from '../components/ProfessionalResumeDisplay'
 
 interface OptimizationResult {
   optimized_resume: string
@@ -310,66 +311,91 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
 
             {/* Optimized Resume Display */}
             {!showComparison && (
-              <div className="bg-white border rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Your Optimized Resume</h3>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => copyToClipboard(result.optimized_resume)}
-                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm transition-colors"
-                    >
-                      Copy
-                    </button>
-                    <button
-                      onClick={() => downloadAsDocx(result.optimized_resume, `optimized-resume-${result.company_name.toLowerCase()}-${result.position_title.toLowerCase().replace(/\s+/g, '-')}.docx`, 'resume')}
-                      className="bg-green-100 hover:bg-green-200 text-green-700 px-3 py-1 rounded-md text-sm transition-colors"
-                    >
-                      Download DOCX
-                    </button>
-                  </div>
+              <div className="space-y-4">
+                {/* Action Buttons */}
+                <div className="flex justify-end space-x-2 bg-gray-50 p-4 rounded-lg">
+                  <button
+                    onClick={() => copyToClipboard(result.optimized_resume)}
+                    className="flex items-center space-x-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm transition-colors shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                    </svg>
+                    <span>Copy Text</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center space-x-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm transition-colors shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    <span>Print</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => downloadAsDocx(
+                      result.optimized_resume,
+                      `optimized-resume-${result.company_name.toLowerCase()}-${result.position_title.toLowerCase().replace(/\s+/g, '-')}.docx`,
+                      'resume'
+                    )}
+                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm transition-colors shadow-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Download DOCX</span>
+                  </button>
                 </div>
-                <div className="prose max-w-none">
-                  <div className="whitespace-pre-wrap text-gray-800 leading-relaxed font-mono text-sm bg-gray-50 p-4 rounded border">
-                    {result.optimized_resume}
-                  </div>
+                
+                {/* Professional Resume Display */}
+                <div className="border rounded-lg overflow-hidden shadow-lg">
+                  <ProfessionalResumeDisplay
+                    resumeText={result.optimized_resume}
+                    companyName={result.company_name}
+                    positionTitle={result.position_title}
+                  />
                 </div>
               </div>
             )}
 
-            {/* Before & After Comparison */}
+            {/* Before & After Comparison - Also Updated */}
             {showComparison && (
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-white border rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                    <span className="w-3 h-3 bg-red-400 rounded-full mr-2"></span>
-                    Original Resume
-                  </h4>
-                  <div className="whitespace-pre-wrap text-gray-700 text-xs font-mono bg-red-50 p-3 rounded border max-h-96 overflow-y-auto">
-                    {formatOriginalResume()}
+              <div className="grid lg:grid-cols-2 gap-6">
+                {/* Original Resume */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-red-50 border-b border-red-200 p-3">
+                    <h4 className="font-semibold text-gray-900 flex items-center">
+                      <span className="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                      Original Resume
+                    </h4>
+                  </div>
+                  <div className="p-4 bg-white max-h-[600px] overflow-y-auto">
+                    <div className="whitespace-pre-wrap text-gray-700 text-sm font-mono">
+                      {formatOriginalResume()}
+                    </div>
                   </div>
                 </div>
                 
-                <div className="bg-white border rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                    <span className="w-3 h-3 bg-green-400 rounded-full mr-2"></span>
-                    Optimized Resume
-                  </h4>
-                  <div className="whitespace-pre-wrap text-gray-700 text-xs font-mono bg-green-50 p-3 rounded border max-h-96 overflow-y-auto">
-                    {result.optimized_resume}
+                {/* Optimized Resume */}
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-green-50 border-b border-green-200 p-3">
+                    <h4 className="font-semibold text-gray-900 flex items-center">
+                      <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                      Optimized Resume
+                    </h4>
+                  </div>
+                  <div className="max-h-[600px] overflow-y-auto">
+                    <ProfessionalResumeDisplay
+                      resumeText={result.optimized_resume}
+                      companyName={result.company_name}
+                      positionTitle={result.position_title}
+                    />
                   </div>
                 </div>
               </div>
             )}
-
-            {/* Optimization Summary */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-blue-900 mb-3">
-                📊 Optimization Summary
-              </h3>
-              <div className="whitespace-pre-wrap text-blue-800 text-sm leading-relaxed">
-                {result.optimization_summary}
-              </div>
-            </div>
           </div>
         )}
       </div>
