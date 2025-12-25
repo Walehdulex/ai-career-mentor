@@ -26,22 +26,26 @@ body {
 }
 
 @media print {
-  /* Hide everything except the resume */
-  body > *:not(.printable-resume) {
+  /* Hide everything except resume */
+  body > *:not(.print-resume) {
     display: none !important;
   }
   
   /* Make resume full width */
-  .printable-resume {
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
+ /* Print styles */
+  .print-resume {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
   }
-  
+
   /* Remove shadows and borders for print */
   .printable-resume * {
     box-shadow: none !important;
     border-radius: 0 !important;
+  }
+  button, .print\\:hidden {
+    display: none !important;
   }
   
   /* Ensure proper page breaks */
@@ -52,5 +56,11 @@ body {
   /* Avoid breaking bullets */
   li {
     page-break-inside: avoid;
+  }
+
+  /* Clean backgrounds for print */
+  * {
+    background: white !important;
+    box-shadow: none !important;
   }
 }

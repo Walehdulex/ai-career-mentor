@@ -123,7 +123,8 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
     const experience = resumeData.experience || []
     const education = resumeData.education || []
     
-    let formatted = `${contact.email || 'Your Name'}\n`
+    // Fixed: Use contact.name instead of contact.email
+    let formatted = `${contact.name || 'Your Name'}\n`
     formatted += `${contact.phone || 'Phone'} | ${contact.email || 'Email'}\n`
     if (contact.linkedin) formatted += `LinkedIn: ${contact.linkedin}\n`
     if (contact.github) formatted += `GitHub: ${contact.github}\n\n`
@@ -131,7 +132,8 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
     formatted += 'TECHNICAL SKILLS\n'
     for (const [category, skillList] of Object.entries(skills)) {
       if (Array.isArray(skillList) && skillList.length > 0) {
-        formatted += `${category.replace('_', ' ').toUpperCase()}: ${skillList.join(', ')}\n`
+        // Fixed: Replace all underscores, not just the first one
+        formatted += `${category.replace(/_/g, ' ').toUpperCase()}: ${skillList.join(', ')}\n`
       }
     }
     
@@ -289,23 +291,23 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
             <div className="flex border-b">
               <button
                 onClick={() => setShowComparison(false)}
-                className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
                   !showComparison 
-                    ? 'border-green-500 text-green-600' 
+                    ? 'border-green-600 text-green-600' 
                     : 'border-transparent text-gray-600 hover:text-gray-800'
                 }`}
               >
-                Optimized Resume
+                📄 Optimized Resume
               </button>
               <button
                 onClick={() => setShowComparison(true)}
-                className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors ${
                   showComparison 
-                    ? 'border-blue-500 text-blue-600' 
+                    ? 'border-blue-600 text-blue-600' 
                     : 'border-transparent text-gray-600 hover:text-gray-800'
                 }`}
               >
-                Before & After Comparison
+                🔄 Before & After Comparison
               </button>
             </div>
 
@@ -313,7 +315,7 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
             {!showComparison && (
               <div className="space-y-4">
                 {/* Action Buttons */}
-                <div className="flex justify-end space-x-2 bg-gray-50 p-4 rounded-lg">
+                <div className="flex justify-end space-x-2 bg-gray-50 p-4 rounded-lg border">
                   <button
                     onClick={() => copyToClipboard(result.optimized_resume)}
                     className="flex items-center space-x-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm transition-colors shadow-sm"
@@ -360,33 +362,35 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
               </div>
             )}
 
-            {/* Before & After Comparison - Also Updated */}
+            {/* Before & After Comparison */}
             {showComparison && (
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Original Resume */}
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-red-50 border-b border-red-200 p-3">
+                <div className="border-2 border-red-200 rounded-lg overflow-hidden bg-white">
+                  <div className="bg-red-50 border-b-2 border-red-200 p-4">
                     <h4 className="font-semibold text-gray-900 flex items-center">
                       <span className="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
                       Original Resume
                     </h4>
+                    <p className="text-xs text-gray-600 mt-1">Your original version before optimization</p>
                   </div>
-                  <div className="p-4 bg-white max-h-[600px] overflow-y-auto">
-                    <div className="whitespace-pre-wrap text-gray-700 text-sm font-mono">
+                  <div className="p-6 max-h-[700px] overflow-y-auto bg-red-50/30">
+                    <div className="whitespace-pre-wrap text-gray-800 text-sm font-mono bg-white p-4 rounded border">
                       {formatOriginalResume()}
                     </div>
                   </div>
                 </div>
                 
                 {/* Optimized Resume */}
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-green-50 border-b border-green-200 p-3">
+                <div className="border-2 border-green-200 rounded-lg overflow-hidden bg-white">
+                  <div className="bg-green-50 border-b-2 border-green-200 p-4">
                     <h4 className="font-semibold text-gray-900 flex items-center">
-                      <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                      <span className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></span>
                       Optimized Resume
                     </h4>
+                    <p className="text-xs text-gray-600 mt-1">Enhanced with keywords and better structure</p>
                   </div>
-                  <div className="max-h-[600px] overflow-y-auto">
+                  <div className="max-h-[700px] overflow-y-auto bg-green-50/30">
                     <ProfessionalResumeDisplay
                       resumeText={result.optimized_resume}
                       companyName={result.company_name}
@@ -396,6 +400,19 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
                 </div>
               </div>
             )}
+
+            {/* Optimization Summary */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Optimization Summary & Improvements
+              </h3>
+              <div className="whitespace-pre-wrap text-blue-900 text-sm leading-relaxed bg-white p-4 rounded border border-blue-100">
+                {result.optimization_summary}
+              </div>
+            </div>
           </div>
         )}
       </div>
