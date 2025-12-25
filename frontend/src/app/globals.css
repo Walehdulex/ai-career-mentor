@@ -25,42 +25,70 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Print Styles */
 @media print {
-  /* Hide everything except resume */
+  /* Hide everything except the resume content */
   body > *:not(.print-resume) {
     display: none !important;
   }
   
-  /* Make resume full width */
- /* Print styles */
-  .print-resume {
-    max-width: 100%;
-    margin: 0;
-    padding: 0;
-  }
-
-  /* Remove shadows and borders for print */
-  .printable-resume * {
-    box-shadow: none !important;
-    border-radius: 0 !important;
-  }
-  button, .print\\:hidden {
+  /* Hide buttons and UI elements */
+  button,
+  .print\:hidden,
+  nav,
+  header,
+  footer {
     display: none !important;
   }
   
-  /* Ensure proper page breaks */
-  h2, h3 {
-    page-break-after: avoid;
+  /* Make resume container full width and remove spacing */
+  .print-resume,
+  .printable-resume {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* Clean backgrounds and remove shadows */
+  .printable-resume,
+  .printable-resume * {
+    background: white !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
   }
   
-  /* Avoid breaking bullets */
-  li {
+  /* Ensure proper page breaks */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+  
+  /* Avoid breaking list items and paragraphs */
+  li, p {
+    page-break-inside: avoid;
+  }
+  
+  /* Ensure sections stay together when possible */
+  section {
     page-break-inside: avoid;
   }
 
-  /* Clean backgrounds for print */
-  * {
-    background: white !important;
-    box-shadow: none !important;
+  /* Force black text for better print quality */
+  body {
+    color: #000000 !important;
+  }
+
+  /* Optimize link display for print */
+  a {
+    text-decoration: none !important;
+    color: #000000 !important;
+  }
+
+  /* Remove unnecessary spacing */
+  @page {
+    margin: 0.5in;
   }
 }

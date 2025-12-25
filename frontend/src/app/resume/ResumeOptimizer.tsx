@@ -315,7 +315,7 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
             {!showComparison && (
               <div className="space-y-4">
                 {/* Action Buttons */}
-                <div className="flex justify-end space-x-2 bg-gray-50 p-4 rounded-lg border">
+                <div className="flex justify-end space-x-2 bg-gray-50 p-4 rounded-lg border print:hidden">
                   <button
                     onClick={() => copyToClipboard(result.optimized_resume)}
                     className="flex items-center space-x-2 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm transition-colors shadow-sm"
@@ -352,7 +352,7 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
                 </div>
                 
                 {/* Professional Resume Display */}
-                <div className="border rounded-lg overflow-hidden shadow-lg">
+                <div className="border rounded-lg overflow-hidden shadow-lg print-resume">
                   <ProfessionalResumeDisplay
                     resumeText={result.optimized_resume}
                     companyName={result.company_name}

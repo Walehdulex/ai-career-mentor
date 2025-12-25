@@ -92,7 +92,7 @@ export const ProfessionalResumeDisplay: React.FC<ProfessionalResumeDisplayProps>
   const sections = parseResume(resumeText);
 
   return (
-    <div className="bg-white p-8 rounded-lg shadow-lg max-w-4xl mx-auto">
+    <div className="printable-resume bg-white p-8 rounded-lg shadow-lg max-w-4xl mx-auto">
       {/* Resume Content */}
       <div className="space-y-6">
         {sections.map((section, index) => {
@@ -173,8 +173,8 @@ export const ProfessionalResumeDisplay: React.FC<ProfessionalResumeDisplayProps>
         })}
       </div>
       
-      {/* Footer metadata */}
-      <div className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-500 text-center">
+      {/* Footer metadata - hide on print */}
+      <div className="mt-8 pt-4 border-t border-gray-200 text-xs text-gray-500 text-center print:hidden">
         Optimized for {positionTitle} at {companyName}
       </div>
     </div>
@@ -188,7 +188,7 @@ export const PrintableResumeDisplay: React.FC<ProfessionalResumeDisplayProps> = 
   positionTitle,
 }) => {
   return (
-    <div className="bg-white p-12 max-w-[8.5in] mx-auto" style={{ fontFamily: 'Georgia, serif' }}>
+    <div className="printable-resume bg-white p-12 max-w-[8.5in] mx-auto" style={{ fontFamily: 'Georgia, serif' }}>
       <style jsx global>{`
         @media print {
           @page {
