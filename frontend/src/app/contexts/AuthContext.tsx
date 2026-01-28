@@ -96,6 +96,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (username: string, password: string) => {
   try {
     console.log('🔐 Attempting login for:', username)
+
+    localStorage.removeItem('chat_session_id')
+    localStorage.removeItem('chat_sessions')
     
     const response = await authAPI.login({ username, password })
     
@@ -168,6 +171,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null)
     localStorage.removeItem('auth_token')
     localStorage.removeItem('token')
+    localStorage.removeItem('chat_session_id')
+    localStorage.removeItem('chat_sessions')
+    sessionStorage.clear()
   }
 
   const refreshUser = async () => {

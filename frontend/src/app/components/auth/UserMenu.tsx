@@ -9,6 +9,10 @@ export const UserMenu: React.FC = () => {
   const router = useRouter();
 
   const handleLogout = () => {
+    localStorage.removeItem('chat_session_id')
+    localStorage.removeItem('chat_sessions')
+
+    
     logout();
     router.push('/');
   };

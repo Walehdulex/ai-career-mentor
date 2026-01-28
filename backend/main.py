@@ -34,8 +34,9 @@ from sqlalchemy import desc, and_, or_
 from backend.email_service import send_job_alert_email
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
-
-
+import jwt
+from datetime import datetime, timedelta
+from backend.auth import SECRET_KEY, ALGORITHM
 
 security = HTTPBearer(auto_error=False)
 job_api_service = JobAPIService()
@@ -70,13 +71,15 @@ create_tables()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "http://localhost:3000",
         "https://ai-career-mentor-kappa.vercel.app",
         "https://www.careermentorlab.com",
         "https://careermentorlab.com"],
       # Next.js default port
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
+    expose_headers=["*"] 
 )
 
 client = OpenAI(api_key= os.getenv("OPENAI_API_KEY"))
@@ -341,7 +344,10 @@ async def chat_with_ai(
         session_id = chat_message.session_id or str(uuid.uuid4())
 
         # Getting or creating session
-        chat_session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
+        chat_session = db.query(ChatSession).filter(
+            ChatSession.session_id == session_id
+        ).first()
+
         if not chat_session:
             chat_session = ChatSession(
                 session_id=session_id,
@@ -350,6 +356,13 @@ async def chat_with_ai(
             db.add(chat_session)
             db.commit()
             db.refresh(chat_session)
+        else:
+            #Verifying session ownership if user is authenticated
+            if current_user_id and chat_session.user_id != current_user_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="This session belongs to another user"
+                )
 
         # Save user message
         user_message = ChatMessage(
@@ -461,8 +474,23 @@ async def get_chat_sessions(
 
 
 @app.get("/api/chat/sessions/{session_id}")
-async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
+async def get_chat_history(
+    session_id: str, 
+    current_user_id: Optional[int] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)):
+
     """Get chat history for a specific session"""
+    session = db.get(ChatSession).filter(
+        ChatSession.session_id == session_id
+    ).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail= "Session not found")
+    
+    if current_user_id and session.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    
     messages = db.query(ChatMessage).filter(
         ChatMessage.session_id == session_id
     ).order_by(ChatMessage.timestamp.asc()).all()
@@ -477,14 +505,26 @@ async def get_chat_history(session_id: str, db: Session = Depends(get_db)):
     ]
 
 @app.delete("/api/chat/sessions/{session_id}")
-async def delete_chat_session(session_id: str, db: Session = Depends(get_db)):
+async def delete_chat_session(
+    session_id: str, 
+    current_user_id: Optional[int] = Depends(get_current_user_optional),
+    db: Session = Depends(get_db)):
+
     """Delete a chat session and all its messages"""
-    chat_session = db.query(ChatSession).filter(ChatSession.session_id == session_id).first()
-    if chat_session:
-        db.delete(chat_session)
-        db.commit()
-        return {"status": "success", "message": "Session deleted"}
-    return {"status": "error", "message": "Session not found"} 
+    chat_session = db.query(ChatSession).filter(
+        ChatSession.session_id == session_id
+        ).first()
+    
+    if not chat_session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if current_user_id and chat_session.user_id != current_user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+        
+    db.delete(chat_session)
+    db.commit()
+    return {"status": "success", "message": "Session deleted"}
+    
    
 @app.post("/api/upload-resume")
 async def upload_resume(file: UploadFile = File(...)):
