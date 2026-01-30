@@ -109,7 +109,7 @@ export default function JobAlertsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-6 text-black">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Job Alerts</h1>
@@ -285,7 +285,7 @@ export default function JobAlertsPage() {
           )}
         </div>
 
-        {/* Info Section */}
+        {/* Info Section
         <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-yellow-900 mb-3">📧 Email Setup Required</h3>
           <p className="text-sm text-yellow-800 mb-3">
@@ -300,7 +300,7 @@ export default function JobAlertsPage() {
           <p className="text-xs text-yellow-700 mt-3">
             For Gmail, you need to create an App Password in your Google Account security settings.
           </p>
-        </div>
+        </div> */}
 
         {/* Tips Section */}
         <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-6">

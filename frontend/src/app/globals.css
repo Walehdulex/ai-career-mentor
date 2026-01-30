@@ -27,37 +27,64 @@ body {
 
 /* Print Styles */
 @media print {
+  @page {
+    size: A4;
+    margin: 0.5in;
+  }
+
   /* Hide everything except the resume content */
-  body > *:not(.print-resume) {
+  body > *:not(.print-resume):not(.printable-resume) {
     display: none !important;
   }
   
-  /* Hide buttons and UI elements */
+  /* Hide all UI controls */
   button,
   .print\:hidden,
   nav,
   header,
-  footer {
+  footer,
+  [class*="shadow"],
+  .bg-gradient-to-r,
+  .bg-gradient-to-br,
+  .bg-gradient-to-b,
+  .rounded-lg,
+  .border-2 {
+    display: none !important;
+  }
+
+  /* Template selector hidden on print - removed invalid :contains() */
+  .space-y-6 > div:first-child,
+  [class*="template"],
+  [class*="Template"] {
     display: none !important;
   }
   
-  /* Make resume container full width and remove spacing */
+  /* Make resume full width */
   .print-resume,
   .printable-resume {
     max-width: 100% !important;
+    width: 100% !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 0.5in !important;
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
+    background: white !important;
   }
 
-  /* Clean backgrounds and remove shadows */
-  .printable-resume,
-  .printable-resume * {
-    background: white !important;
+  /* Clean all backgrounds except essential ones */
+  .printable-resume *:not(h1):not(h2):not(.border-b):not(.border-t),
+  .print-resume * {
+    background: transparent !important;
     box-shadow: none !important;
     border-radius: 0 !important;
+  }
+
+  /* Keep essential borders for resume structure */
+  .printable-resume h2,
+  .print-resume h2 {
+    border-bottom: 2px solid #333 !important;
+    page-break-after: avoid !important;
   }
   
   /* Ensure proper page breaks */
@@ -72,12 +99,18 @@ body {
   }
   
   /* Ensure sections stay together when possible */
-  section {
-    page-break-inside: avoid;
+  section,
+  .resume-section,
+  div[class*="mb-"] {
+    page-break-inside: avoid !important;
   }
 
-  /* Force black text for better print quality */
-  body {
+  /* Force black text */
+  body,
+  .printable-resume,
+  .print-resume,
+  .printable-resume *,
+  .print-resume * {
     color: #000000 !important;
   }
 
@@ -87,8 +120,44 @@ body {
     color: #000000 !important;
   }
 
-  /* Remove unnecessary spacing */
-  @page {
-    margin: 0.5in;
+  /* Ensure proper text sizing */
+  .printable-resume,
+  .print-resume {
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Modern template print fixes */
+  .bg-gradient-to-r {
+    background: #1e40af !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  /* Engineering template print fixes */
+  .bg-slate-800 {
+    background: #1e293b !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  .text-green-400,
+  .text-green-500 {
+    color: #22c55e !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  /* Hide template selector and controls */
+  [class*="template-selector"] {
+    display: none !important;
   }
 }
+
+/* Ensure resume templates are styled properly on screen */
+.ats-resume,
+.modern-resume,
+.engineering-resume {
+  min-height: 11in;
+  background: white;
+} 
