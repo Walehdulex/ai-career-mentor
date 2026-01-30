@@ -69,7 +69,7 @@
 
 ## 🎥 Demo
 
-[Live Demo](https://careermentorlab.com) _(Coming Soon)_
+[Live Demo](https://careermentorlab.com) _ https://careermentorlab.com
 
 ### Screenshots
 
