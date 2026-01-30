@@ -2,8 +2,11 @@
 
 import { useState } from 'react'
 import axios from 'axios'
-import { apiClient } from '../../../lib/api'
-import { ProfessionalResumeDisplay } from '../components/ProfessionalResumeDisplay'
+import  apiClient, {API_URL} from '../../../lib/api'
+import { ResumeTemplateSelector } from '../components/ResumeTemplateSelector'
+import { generateTemplateDocx } from '../../../lib/docxGenerator'
+
+
 
 interface OptimizationResult {
   optimized_resume: string
@@ -45,6 +48,7 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
     setResult(null)
 
     try {
+      console.log('📤 Optimizing resume...')
       const response = await apiClient.post('/api/optimize-resume', {
         resume_data: resumeData,
         job_description: jobDescription,
@@ -52,6 +56,8 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
         position_title: positionTitle,
         optimization_level: optimizationLevel
       })
+
+      console.log(' Optimization response:', response.data)
 
       if (response.data.status === 'success') {
         setResult(response.data)
@@ -72,48 +78,30 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
       alert('Copied to clipboard!')
     } catch (error) {
       console.error('Failed to copy to clipboard:', error)
+      alert('Failed to copy to clipboard')
     }
   }
 
-  const downloadAsDocx = async (content: string, filename: string, docType: string) => {
-    try {
-      const response = await axios.post(
-        `${apiClient.defaults.baseURL}/api/generate-${docType}-docx`,
-        {
-          content: content,
-          filename: filename,
-          doc_type: docType,
-          company_name: companyName,
-          position_title: positionTitle
-        },
-        {
-          responseType: 'blob'
-        }
-      )
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]))
-      const element = document.createElement('a')
-      element.href = url
-      element.download = filename.replace('.txt', '.docx')
-      document.body.appendChild(element)
-      element.click()
-      document.body.removeChild(element)
-      window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Error downloading DOCX:', error)
-      alert('Error downloading DOCX file')
-    }
-  }
+  const [selectedTemplate, setSelectedTemplate] = useState<'ats' | 'modern' | 'engineering'>('ats');
 
-  const downloadAsText = (text: string, filename: string) => {
-    const element = document.createElement('a')
-    const file = new Blob([text], { type: 'text/plain' })
-    element.href = URL.createObjectURL(file)
-    element.download = filename
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
+  const downloadAsDocx = async () => {
+  if (!result) return;
+  
+  try {
+    console.log('📥 Generating DOCX with template:', selectedTemplate);
+    await generateTemplateDocx(
+      result.optimized_resume,
+      result.company_name,
+      result.position_title,
+      selectedTemplate
+    );
+    console.log('✅ DOCX downloaded successfully');
+  } catch (error) {
+    console.error('❌ Error generating DOCX:', error);
+    alert('Error downloading DOCX file. Please try again.');
   }
+};
+
 
   const formatOriginalResume = () => {
     if (!resumeData) return ''
@@ -123,8 +111,10 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
     const experience = resumeData.experience || []
     const education = resumeData.education || []
     
-    // Fixed: Use contact.name instead of contact.email
-    let formatted = `${contact.name || 'Your Name'}\n`
+    // Extract name from raw text or use placeholder
+    const name = resumeData.raw_text?.split('\n')[0]?.trim() || contact.name || 'Your Name'
+    
+    let formatted = `${name}\n`
     formatted += `${contact.phone || 'Phone'} | ${contact.email || 'Email'}\n`
     if (contact.linkedin) formatted += `LinkedIn: ${contact.linkedin}\n`
     if (contact.github) formatted += `GitHub: ${contact.github}\n\n`
@@ -132,7 +122,6 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
     formatted += 'TECHNICAL SKILLS\n'
     for (const [category, skillList] of Object.entries(skills)) {
       if (Array.isArray(skillList) && skillList.length > 0) {
-        // Fixed: Replace all underscores, not just the first one
         formatted += `${category.replace(/_/g, ' ').toUpperCase()}: ${skillList.join(', ')}\n`
       }
     }
@@ -157,6 +146,9 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
     
     return formatted
   }
+
+  
+ 
 
   return (
     <div className="max-w-6xl mx-auto p-6">
@@ -311,7 +303,7 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
               </button>
             </div>
 
-            {/* Optimized Resume Display */}
+            {/* Optimized Resume Display with Template Selector */}
             {!showComparison && (
               <div className="space-y-4">
                 {/* Action Buttons */}
@@ -337,11 +329,7 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
                   </button>
                   
                   <button
-                    onClick={() => downloadAsDocx(
-                      result.optimized_resume,
-                      `optimized-resume-${result.company_name.toLowerCase()}-${result.position_title.toLowerCase().replace(/\s+/g, '-')}.docx`,
-                      'resume'
-                    )}
+                    onClick={downloadAsDocx}  // ✅ Simplified - no parameters needed
                     className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm transition-colors shadow-sm"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -349,16 +337,16 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
                     </svg>
                     <span>Download DOCX</span>
                   </button>
+                  
                 </div>
-                
-                {/* Professional Resume Display */}
-                <div className="border rounded-lg overflow-hidden shadow-lg print-resume">
-                  <ProfessionalResumeDisplay
-                    resumeText={result.optimized_resume}
-                    companyName={result.company_name}
-                    positionTitle={result.position_title}
-                  />
-                </div>
+
+                // Update the template selector to track changes:
+                <ResumeTemplateSelector
+                  resumeText={result.optimized_resume}
+                  companyName={result.company_name}
+                  positionTitle={result.position_title}
+                  onTemplateChange={(template) => setSelectedTemplate(template)}  // ✅ Track template changes
+                />
               </div>
             )}
 
@@ -390,12 +378,10 @@ export default function ResumeOptimizer({ resumeData }: ResumeOptimizerProps) {
                     </h4>
                     <p className="text-xs text-gray-600 mt-1">Enhanced with keywords and better structure</p>
                   </div>
-                  <div className="max-h-[700px] overflow-y-auto bg-green-50/30">
-                    <ProfessionalResumeDisplay
-                      resumeText={result.optimized_resume}
-                      companyName={result.company_name}
-                      positionTitle={result.position_title}
-                    />
+                  <div className="max-h-[700px] overflow-y-auto bg-green-50/30 p-6">
+                    <div className="whitespace-pre-wrap text-gray-800 text-sm bg-white p-4 rounded border">
+                      {result.optimized_resume}
+                    </div>
                   </div>
                 </div>
               </div>

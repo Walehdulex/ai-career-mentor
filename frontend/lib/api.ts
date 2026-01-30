@@ -1,6 +1,5 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export default API_URL;
 
 import axios from 'axios';
 
@@ -53,3 +52,6 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export { API_URL };
+export default apiClient;

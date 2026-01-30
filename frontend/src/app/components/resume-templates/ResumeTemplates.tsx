@@ -1,4 +1,3 @@
-// components/resume-templates/ResumeTemplates.tsx
 'use client';
 
 import React from 'react';
@@ -32,7 +31,7 @@ export const parseResumeText = (text: string): ResumeSection[] => {
     }
     
     // Contact info
-    if (line.includes('@') || (line.includes('|') && i < 5) || line.toLowerCase().includes('linkedin')) {
+    if (line.includes('@') || (line.includes('|') && i < 5) || line.toLowerCase().includes('linkedin') || line.toLowerCase().includes('github')) {
       sections.push({ type: 'contact', content: cleanLine });
       continue;
     }
@@ -84,7 +83,7 @@ export const parseResumeText = (text: string): ResumeSection[] => {
 // ========== ATS STANDARD TEMPLATE (Clean, Simple, ATS-Friendly) ==========
 export const ATSTemplate: React.FC<TemplateProps> = ({ sections, companyName, positionTitle }) => {
   return (
-    <div className="bg-white p-10 max-w-[8.5in] mx-auto font-sans">
+    <div className="bg-white p-10 max-w-[8.5in] mx-auto font-sans print-resume printable-resume">
       <style jsx>{`
         @media print {
           .ats-resume { font-size: 11pt; }
@@ -168,8 +167,8 @@ export const ATSTemplate: React.FC<TemplateProps> = ({ sections, companyName, po
 // ========== MODERN PROFESSIONAL TEMPLATE (Stylish, Color Accents) ==========
 export const ModernTemplate: React.FC<TemplateProps> = ({ sections, companyName, positionTitle }) => {
   return (
-    <div className="bg-gradient-to-br from-slate-50 to-blue-50 p-10 max-w-[8.5in] mx-auto">
-      <div className="bg-white rounded-lg shadow-xl overflow-hidden">
+    <div className="bg-gradient-to-br from-slate-50 to-blue-50 p-10 max-w-[8.5in] mx-auto print-resume">
+      <div className="bg-white rounded-lg shadow-xl overflow-hidden printable-resume">
         {/* Header Section with Accent */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-8 py-6">
           {sections.filter(s => s.type === 'header' || s.type === 'contact').map((section, index) => (
@@ -269,8 +268,9 @@ export const ModernTemplate: React.FC<TemplateProps> = ({ sections, companyName,
 // ========== ENGINEERING TEMPLATE (Technical, Monospace Accents) ==========
 export const EngineeringTemplate: React.FC<TemplateProps> = ({ sections, companyName, positionTitle }) => {
   return (
-    <div className="bg-slate-900 p-10 max-w-[8.5in] mx-auto">
-      <div className="bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800">
+    <div className="bg-slate-900 p-10 max-w-[8.5in] mx-auto print-resume">
+      <div className="bg-white rounded-lg shadow-2xl overflow-hidden border-2 border-slate-800 printable-resume
+      ">
         {/* Terminal-style Header */}
         <div className="bg-slate-800 text-green-400 px-6 py-4 font-mono border-b-2 border-green-500">
           {sections.filter(s => s.type === 'header').map((section, index) => (
