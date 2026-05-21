@@ -37,10 +37,14 @@ import atexit
 import jwt
 from datetime import datetime, timedelta
 from backend.auth import SECRET_KEY, ALGORITHM
+from apscheduler.schedulers.background import BackgroundScheduler
+from job_api_service import JobAPIService
 
 security = HTTPBearer(auto_error=False)
 job_api_service = JobAPIService()
 matching_engine = JobMatchingEngine()
+scheduler = BackgroundScheduler()
+job_api_service = JobAPIService()
 
 
 async def get_current_user_optional(
@@ -2273,6 +2277,38 @@ def fetch_jobs_and_send_alerts():
     
     finally:
         db.close()
+def fetch_jobs_task():
+    """Fetch fresh jobs from Adzuna"""
+    print(f"[{datetime.now()}] Starting scheduled job fetch...")
+    
+    queries = [
+        "software developer",
+        "frontend developer", 
+        "backend developer",
+        "full stack developer",
+        "python developer",
+        "junior developer",
+        "senior developer"
+    ]
+    
+    total_fetched = 0
+    for query in queries:
+        try:
+            jobs = job_api_service.fetch_and_store_jobs(query, "United Kingdom", 20)
+            total_fetched += len(jobs)
+            print(f"  ✅ {query}: {len(jobs)} jobs")
+        except Exception as e:
+            print(f"  ❌ Error fetching {query}: {e}")
+    
+    print(f"[{datetime.now()}] Completed! Total fetched: {total_fetched}")
+
+# ✅ UPDATED: Run 3 times per day instead of once
+scheduler.add_job(fetch_jobs_task, 'cron', hour=9, minute=0, id='morning_fetch')   # 9 AM
+scheduler.add_job(fetch_jobs_task, 'cron', hour=14, minute=0, id='afternoon_fetch') # 2 PM
+scheduler.add_job(fetch_jobs_task, 'cron', hour=20, minute=0, id='evening_fetch')  # 8 PM
+
+scheduler.start()
+print("✅ Job scheduler started - Running at 9 AM, 2 PM, and 8 PM daily")
 
 # Schedule daily job fetching at 9 AM
 scheduler = BackgroundScheduler()

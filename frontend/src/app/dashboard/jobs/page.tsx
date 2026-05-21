@@ -109,6 +109,9 @@ export default function JobsPage() {
     experienceLevel: 'all',
     employmentType: 'all'
   });
+  const [displayedJobsCount, setDisplayedJobsCount] = useState(20);
+  
+  const [freshnessFilter, setFreshnessFilter] = useState('all'); // 'all', '7days', '30days', '90days'
   
   // ✅ Add auth check
   useEffect(() => {
@@ -116,6 +119,10 @@ export default function JobsPage() {
       router.push('/login')
     }
   }, [user, isLoading, router])
+
+  useEffect(() => {
+  setDisplayedJobsCount(20);
+}, [searchQuery, filters, sortBy, sortOrder, freshnessFilter]); // ✅ Added freshnessFilter
 
   useEffect(() => {
     if (user) { // ✅ Only fetch if user exists
@@ -432,6 +439,17 @@ export default function JobsPage() {
     if (filters.salaryMin && job.salaryMin < parseInt(filters.salaryMin)) {
       return false;
     }
+
+    // ✅ NEW: Freshness filter
+    if (freshnessFilter !== 'all' && job.postedDate) {
+      const jobDate = new Date(job.postedDate);
+      const now = new Date();
+      const daysAgo = Math.ceil((now.getTime() - jobDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (freshnessFilter === '7days' && daysAgo > 7) return false;
+      if (freshnessFilter === '30days' && daysAgo > 30) return false;
+      if (freshnessFilter === '90days' && daysAgo > 90) return false;
+    }
     return true;
   })
   // ✅ NEW: Add sorting
@@ -456,6 +474,8 @@ export default function JobsPage() {
     // Reverse if ascending order
     return sortOrder === 'asc' ? -compareValue : compareValue;
   });
+
+  const displayedJobs = filteredJobs.slice(0, displayedJobsCount);
 
   // Count old jobs
   const oldJobsCount = filteredJobs.filter(job => formatJobDate(job.postedDate).isOld).length;
@@ -558,6 +578,18 @@ export default function JobsPage() {
                 />
               </div>
 
+              {/* Freshness Filter for jobs */}
+              <select
+                value={freshnessFilter}
+                onChange={(e) => setFreshnessFilter(e.target.value)}
+                className="px-4 py-3 bg-white border border-gray-300 rounded-lg font-medium focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all"> All Time</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="90days">Last 90 Days</option>
+              </select>
+
               {/*  Sort Dropdown */}
               <select
                 value={sortBy}
@@ -659,7 +691,7 @@ export default function JobsPage() {
         {activeTab === 'recommended' && (
           <div className="space-y-4">
             {filteredJobs.length > 0 ? (
-              filteredJobs.map(job => <JobCard key={job.id} job={job} />)
+              displayedJobs.map(job => <JobCard key={job.id} job={job} />)
             ) : (
               <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                 <Briefcase className="w-12 h-12 text-gray-400 mx-auto mb-4" />
