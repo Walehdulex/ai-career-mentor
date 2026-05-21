@@ -2199,6 +2199,21 @@ async def delete_job_alert(
     
     return {"message": "Alert deleted"}
 
+@app.get("/api/admin/scheduler-status")
+async def get_scheduler_status(db: Session = Depends(get_db)):
+    """Check scheduler status and last job fetch"""
+    latest_job = db.query(JobPosting).order_by(JobPosting.created_at.desc()).first()
+    
+    return {
+        "scheduler_running": scheduler.running,
+        "next_runs": [
+            {"job_id": job.id, "next_run": str(job.next_run_time)}
+            for job in scheduler.get_jobs()
+        ],
+        "latest_job_added": latest_job.created_at.isoformat() if latest_job else None,
+        "total_active_jobs": db.query(JobPosting).filter(JobPosting.is_active == True).count()
+    }
+
 
 # Background job scheduler
 def fetch_jobs_and_send_alerts():
@@ -2307,13 +2322,12 @@ scheduler.add_job(fetch_jobs_task, 'cron', hour=9, minute=0, id='morning_fetch')
 scheduler.add_job(fetch_jobs_task, 'cron', hour=14, minute=0, id='afternoon_fetch') # 2 PM
 scheduler.add_job(fetch_jobs_task, 'cron', hour=20, minute=0, id='evening_fetch')  # 8 PM
 
+# Alerts - once daily
+scheduler.add_job(fetch_jobs_and_send_alerts, 'cron', hour=21, minute=30, id='daily_alerts')
+
 scheduler.start()
 print("✅ Job scheduler started - Running at 9 AM, 2 PM, and 8 PM daily")
 
-# Schedule daily job fetching at 9 AM
-scheduler = BackgroundScheduler()
-scheduler.add_job(fetch_jobs_and_send_alerts, 'cron', hour=21, minute=30)
-scheduler.start()
 
 # Shutdown scheduler on exit
 atexit.register(lambda: scheduler.shutdown())
