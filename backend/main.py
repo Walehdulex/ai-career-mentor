@@ -39,6 +39,7 @@ from datetime import datetime, timedelta
 from backend.auth import SECRET_KEY, ALGORITHM
 from apscheduler.schedulers.background import BackgroundScheduler
 from job_api_service import JobAPIService
+from datetime import datetime, timedelta
 
 security = HTTPBearer(auto_error=False)
 job_api_service = JobAPIService()
@@ -2293,9 +2294,22 @@ def fetch_jobs_and_send_alerts():
     finally:
         db.close()
 def fetch_jobs_task():
-    """Fetch fresh jobs from Adzuna"""
+    """Fetch fresh jobs from Adzuna and clean old ones"""
     print(f"[{datetime.now()}] Starting scheduled job fetch...")
     
+    # ✅ Auto-cleanup: remove jobs older than 90 days
+    try:
+        from backend.database import SessionLocal
+        db = SessionLocal()
+        cutoff = datetime.utcnow() - timedelta(days=90)
+        old_count = db.query(JobPosting).filter(JobPosting.posted_date < cutoff).count()
+        db.query(JobPosting).filter(JobPosting.posted_date < cutoff).delete()
+        db.commit()
+        db.close()
+        print(f"  🗑️ Cleaned up {old_count} old jobs")
+    except Exception as e:
+        print(f"  ❌ Cleanup error: {e}")
+
     queries = [
         "software developer",
         "frontend developer", 
