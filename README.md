@@ -510,9 +510,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📧 Contact
 
 **Developer:** Dulex  
-**Email:** your.email@example.com  
-**LinkedIn:** [linkedin.com/in/yourprofile](https://www.linkedin.com/in/abdullahi-a-37a0b4109/)  
-**Project Link:** [github.com/Walehdulex/ai-career-mentor](https://github.com/Walehdulex/ai-career-mentor)
+**Email:** Awale905@gmail.com  
+**LinkedIn:** (https://www.linkedin.com/in/abdullahi-a-37a0b4109/)  
+**Project Link:** (https://github.com/Walehdulex/ai-career-mentor)
 
 ---
 
