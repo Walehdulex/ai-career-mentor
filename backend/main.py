@@ -268,6 +268,14 @@ async def populate_initial_jobs(db: Session = Depends(get_db)):
         "junior developer",
         "senior developer",
         "lead developer",
+        "data analyst",
+        "junior data analyst",
+        "senior data analyst",
+        "business analyst",
+        "data scientist",
+        "machine learning engineer",
+        "AI engineer",
+        "data engineer",
          # I would add more soont:
     ]
     
@@ -2225,7 +2233,22 @@ def fetch_jobs_and_send_alerts():
     try:
         # Fetch new jobs
         print("Fetching new jobs...")
-        queries = ["software developer", "frontend developer", "backend developer"]
+        queries = ["software developer", 
+                   "frontend developer", 
+                   "backend developer",
+                   "full stack developer",
+                    "python developer",
+                    "junior developer",
+                    "senior developer",
+                    "data analyst",
+                    "junior data analyst",
+                    "senior data analyst",
+                    "business analyst",
+                    "data scientist",
+                    "machine learning engineer",
+                    "AI engineer",
+                    "data engineer",
+                    ]
         
         for query in queries:
             jobs_data = job_api_service.fetch_and_store_jobs(query, "United Kingdom", 20)
@@ -2317,7 +2340,15 @@ def fetch_jobs_task():
         "full stack developer",
         "python developer",
         "junior developer",
-        "senior developer"
+        "senior developer",
+        "data analyst",
+        "junior data analyst",
+        "senior data analyst",
+        "business analyst",
+        "data scientist",
+        "machine learning engineer",
+        "AI engineer",
+        "data engineer",
     ]
     
     total_fetched = 0
