@@ -100,7 +100,7 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [totalJobsCount, setTotalJobsCount] = useState(0);
-  const [sortBy, setSortBy] = useState('match'); // NEW: 'match', 'date', 'salary'
+  const [sortBy, setSortBy] = useState('date'); // NEW: 'match', 'date', 'salary'
   const [sortOrder, setSortOrder] = useState('desc'); // NEW: 'asc' or 'desc'
   const [filters, setFilters] = useState({
     location: '',
@@ -112,6 +112,7 @@ export default function JobsPage() {
   const [displayedJobsCount, setDisplayedJobsCount] = useState(20);
   
   const [freshnessFilter, setFreshnessFilter] = useState('all'); // 'all', '7days', '30days', '90days'
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date());
   
   // ✅ Add auth check
   useEffect(() => {
@@ -129,6 +130,15 @@ export default function JobsPage() {
       fetchJobs();
       fetchApplications();
     }
+  }, [user]);
+
+  // Add auto-refresh every 5 minutes
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      fetchJobs();
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [user]);
 
   // ✅ Show loading while checking auth
@@ -207,6 +217,7 @@ export default function JobsPage() {
       
       setJobs(jobsList);
       setTotalJobsCount(jobsList.length);
+      setLastRefreshed(new Date())
       console.log('✅ Jobs loaded:', jobsList.length)
     }
   } catch (error: any) {
@@ -229,6 +240,8 @@ export default function JobsPage() {
     setLoading(false);
   }
 };
+
+
 
   const fetchApplications = async () => {
   try {
@@ -517,12 +530,22 @@ export default function JobsPage() {
               )}
             </div>
           </div>
-          <a
-            href="/dashboard/jobs/preferences"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
-          >
-            Set Preferences
-          </a>
+          <div className="flex gap-3">
+            <button
+              onClick={fetchJobs}
+              disabled={loading}
+              className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 font-medium flex items-center gap-2"
+            >
+              <Loader2 className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh Jobs
+            </button>
+            <a
+              href="/dashboard/jobs/preferences"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+            >
+              Set Preferences
+            </a>
+          </div>
         </div>
 
         {/* Rest of your existing UI code... */}
@@ -1167,9 +1190,5 @@ const ApplicationStatusModal = ({ application, onClose, onUpdate }: ApplicationS
   );
 };
 
-
-function fetchApplications() {
-  throw new Error('Function not implemented.');
-}
 
   
