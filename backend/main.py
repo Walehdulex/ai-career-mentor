@@ -38,7 +38,7 @@ import jwt
 from datetime import datetime, timedelta
 from backend.auth import SECRET_KEY, ALGORITHM
 from apscheduler.schedulers.background import BackgroundScheduler
-from job_api_service import JobAPIService
+from backend.job_api_service import JobAPIService
 from datetime import datetime, timedelta
 
 security = HTTPBearer(auto_error=False)
