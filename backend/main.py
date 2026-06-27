@@ -40,7 +40,7 @@ from backend.auth import SECRET_KEY, ALGORITHM
 from apscheduler.schedulers.background import BackgroundScheduler
 from backend.job_api_service import JobAPIService
 from datetime import datetime, timedelta
-from password_reset import router as password_reset_router
+from backend.password_reset import router as password_reset_router
 
 security = HTTPBearer(auto_error=False)
 job_api_service = JobAPIService()
