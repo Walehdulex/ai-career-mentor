@@ -411,7 +411,15 @@ class Resume(Base):
     is_default = Column(Boolean, default=False)
     upload_date = Column(DateTime, default=datetime.utcnow)
     
-    user = relationship("User")         
+    user = relationship("User")        
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+ 
+    token_hash = Column(String, primary_key=True, index=True)
+    user_id    = Column(String, nullable=False, index=True)   # stores str(user.id)
+    expires_at = Column(DateTime, nullable=False)
+    used       = Column(Boolean, default=False, nullable=False) 
 
 # Creating Tables
 def create_tables():

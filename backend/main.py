@@ -40,12 +40,14 @@ from backend.auth import SECRET_KEY, ALGORITHM
 from apscheduler.schedulers.background import BackgroundScheduler
 from backend.job_api_service import JobAPIService
 from datetime import datetime, timedelta
+from password_reset import router as password_reset_router
 
 security = HTTPBearer(auto_error=False)
 job_api_service = JobAPIService()
 matching_engine = JobMatchingEngine()
 scheduler = BackgroundScheduler()
 job_api_service = JobAPIService()
+
 
 
 async def get_current_user_optional(
@@ -68,6 +70,8 @@ async def get_current_user_optional(
 load_dotenv()
 
 app = FastAPI()
+
+app.include_router(password_reset_router)
 
 #Creating database table
 create_tables()

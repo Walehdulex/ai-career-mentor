@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 interface AuthFormsProps {
   initialMode?: 'login' | 'register'
@@ -165,10 +166,21 @@ export default function AuthForms({ initialMode = 'login', onSuccess }: AuthForm
               </div>
             )}
 
+            {/* ── Password field with Forgot password link ── */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                {mode === 'login' && (
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                )}
+              </div>
               <input
                 id="password"
                 name="password"
@@ -238,15 +250,14 @@ export default function AuthForms({ initialMode = 'login', onSuccess }: AuthForm
         </form>
       </div>
     </div>
-    )
-  }
+  )
+}
 
-  
 
-  export function LoginForm(props: Omit<AuthFormsProps, 'initialMode'>) {
-    return <AuthForms {...props} initialMode="login" />
-  }
+export function LoginForm(props: Omit<AuthFormsProps, 'initialMode'>) {
+  return <AuthForms {...props} initialMode="login" />
+}
 
-  export function RegisterForm(props: Omit<AuthFormsProps, 'initialMode'>) {
-    return <AuthForms {...props} initialMode="register" />
-  }
+export function RegisterForm(props: Omit<AuthFormsProps, 'initialMode'>) {
+  return <AuthForms {...props} initialMode="register" />
+}
