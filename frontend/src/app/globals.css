@@ -25,7 +25,40 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Print Styles */
+/* ── Mobile / Responsive fixes ───────────────────────────────────────────── */
+
+/* Prevent horizontal scroll on any screen size */
+html,
+body {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* CRITICAL: Prevents iOS Safari from zooming in when tapping any input field */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Remove the grey highlight flash when tapping elements on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Clear space at the bottom so content isn't hidden behind the mobile bottom nav */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Safe area padding helper class — used by the bottom nav itself */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ── Print Styles ─────────────────────────────────────────────────────────── */
 @media print {
   @page {
     size: A4;
@@ -154,10 +187,10 @@ body {
   }
 }
 
-/* Ensure resume templates are styled properly on screen */
+/* ── Resume template screen styles ───────────────────────────────────────── */
 .ats-resume,
 .modern-resume,
 .engineering-resume {
   min-height: 11in;
   background: white;
-} 
+}

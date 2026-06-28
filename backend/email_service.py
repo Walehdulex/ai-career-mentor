@@ -111,7 +111,7 @@ async def send_reset_email(to_email: str, name: str, reset_url: str):
         </tr>
         <tr>
           <td style="padding:20px 40px;border-top:1px solid #f3f4f6;">
-            <p style="margin:0;font-size:12px;color:#d1d5db;">© 2025 CareerMentorLab · careermentorlab.com</p>
+            <p style="margin:0;font-size:12px;color:#d1d5db;">© 2026 CareerMentorLab · careermentorlab.com</p>
           </td>
         </tr>
       </table>

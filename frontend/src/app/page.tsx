@@ -76,7 +76,7 @@ export default function Home() {
       {/* Features */}
       <div className="max-w-6xl mx-auto px-4 py-12">
         <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">
-          Features Coming Soon
+          Features Accessible only by registered Users
         </h2>
         <div className="grid md:grid-cols-3 gap-6">
           <div className="bg-white rounded-lg p-6 shadow-sm border">
