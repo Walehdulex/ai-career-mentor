@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { MobileBottomNav } from "../components/layout/Header";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
 
 const INTERVIEW_TYPES = [
@@ -193,6 +194,7 @@ function SetupContent() {
           </div>
         </form>
       </div>
+      <MobileBottomNav />
     </div>
   );
 }
