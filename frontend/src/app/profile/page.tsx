@@ -152,7 +152,7 @@ const ProfileContent: React.FC = () => {
                 {/* Career Info */}
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <div>
-                    <label htmlFor="current_role" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="current_role" className="block text-sm font-medium text-gray-700 ">
                       Current Role
                     </label>
                     <input
@@ -163,7 +163,7 @@ const ProfileContent: React.FC = () => {
                       onChange={handleInputChange}
                       disabled={!isEditing}
                       placeholder="e.g., Software Engineer, Marketing Manager"
-                      className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm ${
+                      className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm text-black ${
                         isEditing
                           ? 'focus:ring-blue-500 focus:border-blue-500'
                           : 'bg-gray-50 text-black'
@@ -181,7 +181,7 @@ const ProfileContent: React.FC = () => {
                       value={formData.industry}
                       onChange={handleInputChange}
                       disabled={!isEditing}
-                      className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm ${
+                      className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm text-black ${
                         isEditing
                           ? 'focus:ring-blue-500 focus:border-blue-500'
                           : 'bg-gray-50 text-black'
@@ -197,7 +197,7 @@ const ProfileContent: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 text-black">
                   <div>
                     <label htmlFor="years_of_experience" className="block text-sm font-medium text-gray-700">
                       Years of Experience
@@ -231,7 +231,7 @@ const ProfileContent: React.FC = () => {
                       onChange={handleInputChange}
                       disabled={!isEditing}
                       placeholder="e.g., San Francisco, CA"
-                      className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm ${
+                      className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm text-black ${
                         isEditing
                           ? 'focus:ring-blue-500 focus:border-blue-500'
                           : 'bg-gray-50 text-black'
@@ -252,7 +252,7 @@ const ProfileContent: React.FC = () => {
                     onChange={handleInputChange}
                     disabled={!isEditing}
                     placeholder="Describe your career aspirations and goals..."
-                    className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm ${
+                    className={`mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm sm:text-sm text-black ${
                       isEditing
                         ? 'focus:ring-blue-500 focus:border-blue-500'
                         : 'bg-gray-50 text-black'

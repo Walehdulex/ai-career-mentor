@@ -41,6 +41,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from backend.job_api_service import JobAPIService
 from datetime import datetime, timedelta
 from backend.password_reset import router as password_reset_router
+from backend.interview import router as interview_router
 
 security = HTTPBearer(auto_error=False)
 job_api_service = JobAPIService()
@@ -72,6 +73,7 @@ load_dotenv()
 app = FastAPI()
 
 app.include_router(password_reset_router)
+app.include_router(interview_router)
 
 #Creating database table
 create_tables()
@@ -1455,7 +1457,8 @@ async def patch_user_profile(
     db: Session = Depends(get_db)
 ):
     """Partially update user profile (PATCH method)"""
-    return await update_user_profile(profile_data, current_user_id, db)
+    data_dict = profile_data.model_dump(exclude_unset=True)
+    return await update_user_profile(data_dict, current_user_id, db)
 
 @app.patch("/api/auth/profile")
 async def patch_auth_user_profile(
@@ -1465,7 +1468,8 @@ async def patch_auth_user_profile(
 ):
     """Partially update user profile (alternative endpoint)"""
     print(f"PATCH /api/auth/profile called for user: {current_user_id}")
-    return await update_user_profile(profile_data, current_user_id, db)
+    data_dict = profile_data.model_dump(exclude_unset=True)
+    return await update_user_profile(data_dict, current_user_id, db)
     
 @app.post("/api/jobs/fetch")
 async def fetch_jobs_from_apis(
