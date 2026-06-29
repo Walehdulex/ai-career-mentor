@@ -3,16 +3,40 @@ import uuid
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import Column, Integer, String, Text, Float, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
+import jwt as pyjwt
 
 from backend.database import Base, get_db, User, UserProfile
-from backend.auth import get_current_user_id
+from backend.auth import SECRET_KEY, ALGORITHM  # keys only — not get_current_user_id
 from openai import OpenAI
 from fastapi import UploadFile, File
 import tempfile, os
+
+# ── Local auth ────────────────────────────────────────────────────────────────
+# Reads BOTH 'user_id' (login) and 'sub' (register) from JWT payload
+_security = HTTPBearer(auto_error=False)
+
+def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials = Depends(_security),
+) -> str:
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = pyjwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("user_id") or payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        return str(user_id)
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except pyjwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 router = APIRouter(prefix="/api/interview", tags=["interview"])
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -26,10 +50,10 @@ class InterviewSession(Base):
     user_id        = Column(Integer, ForeignKey("users.id"), nullable=False)
     role           = Column(String, nullable=False)
     company        = Column(String, nullable=True)
-    interview_type = Column(String, nullable=False)   # technical | behavioural | situational | hr
-    difficulty     = Column(String, nullable=False)   # easy | medium | hard
+    interview_type = Column(String, nullable=False)
+    difficulty     = Column(String, nullable=False)
     total_questions= Column(Integer, nullable=False)
-    status         = Column(String, default="in_progress")  # in_progress | completed
+    status         = Column(String, default="in_progress")
     overall_score  = Column(Float, nullable=True)
     created_at     = Column(DateTime, default=datetime.utcnow)
     completed_at   = Column(DateTime, nullable=True)
@@ -46,8 +70,8 @@ class InterviewQuestion(Base):
     question_text  = Column(Text, nullable=False)
     question_type  = Column(String, nullable=False)
     user_answer    = Column(Text, nullable=True)
-    answer_method  = Column(String, nullable=True)   # text | voice
-    score          = Column(Float, nullable=True)    # 0-100
+    answer_method  = Column(String, nullable=True)
+    score          = Column(Float, nullable=True)
     feedback       = Column(Text, nullable=True)
     ideal_answer   = Column(Text, nullable=True)
     answered_at    = Column(DateTime, nullable=True)
@@ -59,17 +83,15 @@ class InterviewQuestion(Base):
 class StartInterviewRequest(BaseModel):
     role: str
     company: Optional[str] = None
-    interview_type: str   # technical | behavioural | situational | hr
-    difficulty: str       # easy | medium | hard
-    num_questions: int    # 5 | 10 | 15
-
+    interview_type: str
+    difficulty: str
+    num_questions: int
 
 class SubmitAnswerRequest(BaseModel):
     session_id: int
     question_id: int
     answer: str
-    answer_method: str = "text"   # text | voice
-
+    answer_method: str = "text"
 
 class NextQuestionRequest(BaseModel):
     session_id: int
@@ -113,7 +135,6 @@ Example format:
     )
 
     raw = response.choices[0].message.content.strip()
-    # Strip markdown fences if present
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
@@ -171,7 +192,6 @@ async def start_interview(
     current_user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Create a new interview session and generate all questions upfront."""
     if req.num_questions not in [5, 10, 15]:
         raise HTTPException(status_code=422, detail="num_questions must be 5, 10, or 15.")
     if req.interview_type not in ["technical", "behavioural", "situational", "hr"]:
@@ -235,7 +255,6 @@ async def submit_answer(
     current_user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Score the submitted answer and return feedback + next question if any."""
     session = db.query(InterviewSession).filter(
         InterviewSession.id == req.session_id,
         InterviewSession.user_id == int(current_user_id),
@@ -253,7 +272,6 @@ async def submit_answer(
         raise HTTPException(status_code=404, detail="Question not found.")
     if question.user_answer:
         raise HTTPException(status_code=400, detail="Question already answered.")
-
     if not req.answer.strip():
         raise HTTPException(status_code=422, detail="Answer cannot be empty.")
 
@@ -265,15 +283,14 @@ async def submit_answer(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Scoring failed: {str(e)}")
 
-    question.user_answer  = req.answer
-    question.answer_method= req.answer_method
-    question.score        = result["score"]
-    question.feedback     = result["feedback"]
-    question.ideal_answer = result["ideal_answer"]
-    question.answered_at  = datetime.utcnow()
+    question.user_answer   = req.answer
+    question.answer_method = req.answer_method
+    question.score         = result["score"]
+    question.feedback      = result["feedback"]
+    question.ideal_answer  = result["ideal_answer"]
+    question.answered_at   = datetime.utcnow()
     db.commit()
 
-    # Check if all questions answered
     answered = db.query(InterviewQuestion).filter(
         InterviewQuestion.session_id == session.id,
         InterviewQuestion.user_answer.isnot(None),
@@ -288,7 +305,6 @@ async def submit_answer(
         if next_q_obj:
             next_q = {"id": next_q_obj.id, "number": next_q_obj.question_number, "text": next_q_obj.question_text}
 
-    # Complete session if all answered
     is_complete = answered >= session.total_questions
     if is_complete:
         all_scores = db.query(InterviewQuestion).filter(
@@ -296,8 +312,8 @@ async def submit_answer(
         ).all()
         scores = [q.score for q in all_scores if q.score is not None]
         session.overall_score = round(sum(scores) / len(scores), 1) if scores else 0
-        session.status = "completed"
-        session.completed_at = datetime.utcnow()
+        session.status        = "completed"
+        session.completed_at  = datetime.utcnow()
         db.commit()
 
     return {
@@ -314,30 +330,28 @@ async def submit_answer(
         "overall_score": session.overall_score if is_complete else None,
     }
 
+
 @router.post("/transcribe")
 async def transcribe_audio(
     file: UploadFile = File(...),
     current_user_id: str = Depends(get_current_user_id),
 ):
-    """Transcribe a voice recording using OpenAI Whisper."""
     try:
-        # Save to temp file (Whisper needs a real file path)
-        suffix = ".webm"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
             content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
- 
+
         with open(tmp_path, "rb") as audio_file:
             transcript = client.audio.transcriptions.create(
                 model="whisper-1",
                 file=audio_file,
                 response_format="text",
             )
- 
+
         os.unlink(tmp_path)
         return {"text": transcript.strip()}
- 
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
 
@@ -347,7 +361,6 @@ async def get_interview_sessions(
     current_user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """List all interview sessions for the current user."""
     sessions = db.query(InterviewSession).filter(
         InterviewSession.user_id == int(current_user_id)
     ).order_by(InterviewSession.created_at.desc()).all()
@@ -375,7 +388,6 @@ async def get_session_results(
     current_user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ):
-    """Full session detail with all Q&A, scores, and feedback."""
     session = db.query(InterviewSession).filter(
         InterviewSession.id == session_id,
         InterviewSession.user_id == int(current_user_id),
