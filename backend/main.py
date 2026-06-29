@@ -2445,6 +2445,34 @@ async def debug_jobs_simple(db: Session = Depends(get_db)):
         for job in jobs
     ]
 
+@app.get("/api/admin/users")
+async def get_all_users(
+    x_admin_secret: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Get all users — protected by admin secret header"""
+    admin_secret = os.getenv("ADMIN_SECRET", "")
+    
+    if not admin_secret or x_admin_secret != admin_secret:
+        raise HTTPException(status_code=403, detail="Admin access only")
+ 
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "full_name": u.full_name,
+            "email": u.email,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "resume_analyses_count": u.resume_analyses_count or 0,
+            "cover_letters_count": u.cover_letters_count or 0,
+            "optimizations_count": u.optimizations_count or 0,
+            "chat_messages_count": u.chat_messages_count or 0,
+            "is_active": u.is_active,
+        }
+        for u in users
+    ]
+
 # @app.get("/api/debug/check-auth")
 # async def check_auth(authorization: Optional[str] = Header(None)):
 #     """Debug authentication"""
