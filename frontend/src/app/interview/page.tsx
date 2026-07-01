@@ -38,7 +38,10 @@ function SetupContent() {
     setError("");
 
     try {
-      const token = localStorage.getItem("auth_token");
+      // Read token at submit time — tries both keys in case of register vs login
+      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
+      if (!token) { setError("You must be logged in to start an interview."); setLoading(false); return; }
+
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/interview/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
