@@ -2527,6 +2527,29 @@ def cleanup_old_jobs():
     finally:
         db.close()
 
+@app.get("/api/admin/check-old-jobs")
+async def check_old_jobs(db: Session = Depends(get_db)):
+    """Check how many active jobs are actually stale"""
+    from sqlalchemy import func
+    cutoff = datetime.utcnow() - timedelta(days=90)
+    effective_date = func.coalesce(JobPosting.posted_date, JobPosting.created_at)
+
+    old_jobs = db.query(JobPosting).filter(effective_date < cutoff).all()
+    null_date_jobs = db.query(JobPosting).filter(JobPosting.posted_date.is_(None)).count()
+
+    return {
+        "jobs_older_than_90_days": len(old_jobs),
+        "jobs_with_null_posted_date": null_date_jobs,
+        "oldest_5": [
+            {
+                "id": j.id,
+                "title": j.title,
+                "posted_date": j.posted_date.isoformat() if j.posted_date else None,
+                "created_at": j.created_at.isoformat() if j.created_at else None,
+            }
+            for j in old_jobs[:5]
+        ]
+    }
 
 
 # @app.get("/api/debug/check-auth")
