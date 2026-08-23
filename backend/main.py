@@ -2485,29 +2485,22 @@ async def manual_run_job_fetch(
 async def manual_cleanup_old_jobs(
     days: int = 90,
     x_admin_secret: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
 ):
     """Manually trigger old-job cleanup. Protected by admin secret."""
     admin_secret = os.getenv("ADMIN_SECRET", "")
     if not admin_secret or x_admin_secret != admin_secret:
         raise HTTPException(status_code=403, detail="Admin access only")
 
-    from sqlalchemy import func
-    cutoff = datetime.utcnow() - timedelta(days=days)
-    effective_date = func.coalesce(JobPosting.posted_date, JobPosting.created_at)
-
-    to_delete = db.query(JobPosting).filter(effective_date < cutoff)
-    count = to_delete.count()
-    to_delete.delete(synchronize_session=False)
-    db.commit()
-
-    return {"status": "success", "jobs_deleted": count, "cutoff_days": days}
+    result = cleanup_old_jobs()
+    return {"status": "success", **result, "cutoff_days": days}
 
 
 def cleanup_old_jobs():
-    """Delete jobs older than 90 days. Falls back to created_at when
-    posted_date is NULL, since NULL < cutoff never matches in SQL and
-    those rows would otherwise never get cleaned up."""
+    """Deactivate jobs older than 90 days. Jobs referenced by applications,
+    saved jobs, or matches are soft-deleted (is_active=False) to preserve
+    user history — a hard delete would violate foreign key constraints
+    and silently roll back the whole batch. Fully orphaned old jobs are
+    hard-deleted to keep the table lean."""
     from backend.database import SessionLocal
     from sqlalchemy import func
     db = SessionLocal()
@@ -2515,11 +2508,30 @@ def cleanup_old_jobs():
         cutoff = datetime.utcnow() - timedelta(days=90)
         effective_date = func.coalesce(JobPosting.posted_date, JobPosting.created_at)
 
-        old_count = db.query(JobPosting).filter(effective_date < cutoff).count()
-        db.query(JobPosting).filter(effective_date < cutoff).delete(synchronize_session=False)
+        old_jobs = db.query(JobPosting).filter(
+            effective_date < cutoff,
+            JobPosting.is_active == True
+        ).all()
+
+        deactivated = 0
+        hard_deleted = 0
+
+        for job in old_jobs:
+            has_refs = (
+                db.query(JobApplication).filter(JobApplication.job_id == job.id).first()
+                or db.query(SavedJob).filter(SavedJob.job_id == job.id).first()
+                or db.query(JobMatch).filter(JobMatch.job_id == job.id).first()
+            )
+            if has_refs:
+                job.is_active = False
+                deactivated += 1
+            else:
+                db.delete(job)
+                hard_deleted += 1
+
         db.commit()
-        print(f"  🗑️ Cleaned up {old_count} old jobs")
-        return old_count
+        print(f"  🗑️ Deactivated {deactivated} old jobs, hard-deleted {hard_deleted} orphaned jobs")
+        return {"deactivated": deactivated, "hard_deleted": hard_deleted}
     except Exception as e:
         db.rollback()
         print(f"  ❌ Cleanup error: {e}")
@@ -2534,11 +2546,14 @@ async def check_old_jobs(db: Session = Depends(get_db)):
     cutoff = datetime.utcnow() - timedelta(days=90)
     effective_date = func.coalesce(JobPosting.posted_date, JobPosting.created_at)
 
-    old_jobs = db.query(JobPosting).filter(effective_date < cutoff).all()
+    old_jobs = db.query(JobPosting).filter(
+        effective_date < cutoff,
+        JobPosting.is_active == True
+    ).all()
     null_date_jobs = db.query(JobPosting).filter(JobPosting.posted_date.is_(None)).count()
 
     return {
-        "jobs_older_than_90_days": len(old_jobs),
+        "jobs_older_than_90_days_still_active": len(old_jobs),
         "jobs_with_null_posted_date": null_date_jobs,
         "oldest_5": [
             {
