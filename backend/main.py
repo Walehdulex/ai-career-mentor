@@ -2324,22 +2324,15 @@ def fetch_jobs_and_send_alerts():
     
     finally:
         db.close()
+
 def fetch_jobs_task():
     """Fetch fresh jobs from Adzuna and clean old ones"""
     print(f"[{datetime.now()}] Starting scheduled job fetch...")
-    
-    # ✅ Auto-cleanup: remove jobs older than 90 days
+
     try:
-        from backend.database import SessionLocal
-        db = SessionLocal()
-        cutoff = datetime.utcnow() - timedelta(days=90)
-        old_count = db.query(JobPosting).filter(JobPosting.posted_date < cutoff).count()
-        db.query(JobPosting).filter(JobPosting.posted_date < cutoff).delete()
-        db.commit()
-        db.close()
-        print(f"  🗑️ Cleaned up {old_count} old jobs")
-    except Exception as e:
-        print(f"  ❌ Cleanup error: {e}")
+        cleanup_old_jobs()
+    except Exception:
+        pass  # already logged inside cleanup_old_jobs
 
     queries = [
         "software developer",
@@ -2358,7 +2351,7 @@ def fetch_jobs_task():
         "AI engineer",
         "data engineer",
     ]
-    
+
     total_fetched = 0
     for query in queries:
         try:
@@ -2367,8 +2360,9 @@ def fetch_jobs_task():
             print(f"  ✅ {query}: {len(jobs)} jobs")
         except Exception as e:
             print(f"  ❌ Error fetching {query}: {e}")
-    
+
     print(f"[{datetime.now()}] Completed! Total fetched: {total_fetched}")
+    return total_fetched
 
 # ✅ UPDATED: Run 3 times per day instead of once
 scheduler.add_job(fetch_jobs_task, 'cron', hour=9, minute=0, id='morning_fetch')   # 9 AM
@@ -2472,6 +2466,68 @@ async def get_all_users(
         }
         for u in users
     ]
+
+@app.post("/api/admin/run-job-fetch")
+async def manual_run_job_fetch(
+    x_admin_secret: Optional[str] = Header(None),
+):
+    """Manually trigger the full fetch+cleanup cycle. Protected by admin secret.
+    Point an external cron (cron-job.org, UptimeRobot) at this 3x/day so it
+    doesn't depend on the in-process APScheduler firing while Render is asleep."""
+    admin_secret = os.getenv("ADMIN_SECRET", "")
+    if not admin_secret or x_admin_secret != admin_secret:
+        raise HTTPException(status_code=403, detail="Admin access only")
+
+    total = fetch_jobs_task()
+    return {"status": "success", "total_fetched": total}
+
+@app.post("/api/admin/cleanup-old-jobs")
+async def manual_cleanup_old_jobs(
+    days: int = 90,
+    x_admin_secret: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Manually trigger old-job cleanup. Protected by admin secret."""
+    admin_secret = os.getenv("ADMIN_SECRET", "")
+    if not admin_secret or x_admin_secret != admin_secret:
+        raise HTTPException(status_code=403, detail="Admin access only")
+
+    from sqlalchemy import func
+    cutoff = datetime.utcnow() - timedelta(days=days)
+    effective_date = func.coalesce(JobPosting.posted_date, JobPosting.created_at)
+
+    to_delete = db.query(JobPosting).filter(effective_date < cutoff)
+    count = to_delete.count()
+    to_delete.delete(synchronize_session=False)
+    db.commit()
+
+    return {"status": "success", "jobs_deleted": count, "cutoff_days": days}
+
+
+def cleanup_old_jobs():
+    """Delete jobs older than 90 days. Falls back to created_at when
+    posted_date is NULL, since NULL < cutoff never matches in SQL and
+    those rows would otherwise never get cleaned up."""
+    from backend.database import SessionLocal
+    from sqlalchemy import func
+    db = SessionLocal()
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=90)
+        effective_date = func.coalesce(JobPosting.posted_date, JobPosting.created_at)
+
+        old_count = db.query(JobPosting).filter(effective_date < cutoff).count()
+        db.query(JobPosting).filter(effective_date < cutoff).delete(synchronize_session=False)
+        db.commit()
+        print(f"  🗑️ Cleaned up {old_count} old jobs")
+        return old_count
+    except Exception as e:
+        db.rollback()
+        print(f"  ❌ Cleanup error: {e}")
+        raise
+    finally:
+        db.close()
+
+
 
 # @app.get("/api/debug/check-auth")
 # async def check_auth(authorization: Optional[str] = Header(None)):
