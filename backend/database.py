@@ -1,20 +1,19 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float, JSON
+from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey, Boolean, Float, JSON, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 #Database Setup
 # Load environment variable
-DATABASE_URL = (
-    "postgresql://postgres.ophvscnepuoluydaondw:c3K1Nnsut7SAVU4G"
-    "@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
-    "?sslmode=require"
-    "&client_encoding=UTF8"
-    "&target_session_attrs=read-write"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-
+if not DATABASE_URL:
+    if os.getenv("RENDER"):  # Render sets this automatically
+        raise RuntimeError("DATABASE_URL is not set")
+    DATABASE_URL = "sqlite:///./career_mentor.db"  # local dev fallback
 
 # Render (and some other hosts) use "postgres://" — SQLAlchemy needs "postgresql://"
 if DATABASE_URL.startswith("postgres://"):
@@ -193,6 +192,9 @@ class UserActivity(Base):
 
 class JobPosting(Base):
     __tablename__ = "job_postings"
+    __table_args__ = (
+        UniqueConstraint("source", "external_id", name="uq_job_postings_external_id"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
 
@@ -220,8 +222,9 @@ class JobPosting(Base):
     company_size = Column(String)  # startup, small, medium, large, enterprise
 
     # External data
-    external_id = Column(String, unique=True, index=True)  # ID from job board API
-    source = Column(String)  # adzuna, indeed, linkedin, etc.
+    external_id = Column(String,index=True)  # ID from job board API
+    dedupe_key = Column(String, index=True)
+    source = Column(String)  # adzuna, indeed, linkedin, etc.   
     apply_url = Column(String)
     posted_date = Column(DateTime)
     expires_date = Column(DateTime)
@@ -433,20 +436,6 @@ def get_db():
     finally:
         db.close()
 
-
-#Debugging below
-# from sqlalchemy import create_engine
-
-# DATABASE_URL = (
-#     "postgresql://postgres.ophvscnepuoluydaondw:c3K1Nnsut7SAVU4G"
-#     "@aws-1-eu-west-1.pooler.supabase.com:6543/postgres"
-#     "?sslmode=require&prepared_statement_cache_size=0"
-# )
-
-# engine = create_engine(DATABASE_URL)
-
-# with engine.connect() as conn:
-#     print("Connected successfully!")
 
 
 
