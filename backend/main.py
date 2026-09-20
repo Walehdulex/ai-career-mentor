@@ -1,5 +1,5 @@
 import traceback
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, APIRouter, status, Header
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Depends, APIRouter, status, Header, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2PasswordRequestForm
@@ -16,7 +16,7 @@ from passlib.context import CryptContext
 from dotenv import load_dotenv
 from backend.enhanced_resume_parser import EnhancedResumeParser
 from backend.database import Resume, create_tables, get_db, ChatSession, ChatMessage, ResumeAnalysis, User, UserProfile, UserActivity, JobPosting, UserJobPreferences, JobApplication, SavedJob, JobMatch,get_db,Base, User, UserProfile, JobPosting, JobApplication, SavedJob, UserJobPreferences,JobMatch,Resume,JobAlert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from docx import Document
 from docx.shared import Inches, Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -46,6 +46,7 @@ from backend.job_ingest import upsert_jobs, fetch_and_save_jobs
 import logging
 from backend.database import SessionLocal
 import secrets
+import threading
 
 
 
@@ -537,7 +538,7 @@ async def get_chat_history(
     db: Session = Depends(get_db)):
 
     """Get chat history for a specific session"""
-    session = db.get(ChatSession).filter(
+    session = db.query(ChatSession).filter(
         ChatSession.session_id == session_id
     ).first()
 
@@ -1788,7 +1789,7 @@ async def get_saved_jobs(
     
     saved_jobs = db.query(SavedJob).filter(
         SavedJob.user_id == current_user_id
-    ).order_by(desc(SavedJob.saved_at)).all()
+    ).order_by(desc(SavedJob.saved_date)).all()
     
     result = []
     for saved in saved_jobs:
@@ -1856,80 +1857,101 @@ async def create_application(
 
 
 @app.get("/api/applications")
-async def get_applications(
+def get_applications(
     status: Optional[str] = None,
-    current_user_id: str= Depends(get_current_user_id),  # ✅ Using str instead of Optional
+    current_user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     """Get all user applications"""
-    # ✅ Proper check for None
-    user_id = int(current_user_id)  # ✅ Convert to int
-    
-    query = db.query(JobApplication).filter(
-        JobApplication.user_id == user_id  # ✅ Use user_id here
+    user_id = int(current_user_id)
+ 
+    # joinedload fetches each application's job in the same query.
+    # The old version ran one extra query per application (N+1).
+    query = (
+        db.query(JobApplication)
+        .options(joinedload(JobApplication.job))
+        .filter(JobApplication.user_id == user_id)
     )
-    
+ 
     if status:
         query = query.filter(JobApplication.status == status)
-    
+ 
     applications = query.order_by(desc(JobApplication.applied_date)).all()
-    
+ 
     result = []
-    for app in applications:
-        job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
-        if job:
+    for application in applications:  # not `app`, which shadows the FastAPI app
+        job = application.job
+        if not job:
+            continue
+ 
+        if application.interview_scheduled:
+            next_step = f"Interview scheduled for {application.interview_scheduled.strftime('%Y-%m-%d')}"
+        elif application.user_notes:
+            next_step = application.user_notes
+        else:
             next_step = "Awaiting response"
-            if hasattr(app, 'user_notes') and app.user_notes:
-                next_step = app.user_notes
-            elif hasattr(app, 'interview_scheduled') and app.interview_scheduled:
-                next_step = f"Interview scheduled for {app.interview_scheduled.strftime('%Y-%m-%d')}"
-            
-            result.append({
-                "id": app.id,
-                "jobTitle": job.title,
-                "company": job.company_name,
-                "status": app.status,
-                "appliedDate": app.applied_date.strftime("%Y-%m-%d"),
-                "nextStep": next_step,
-                "interview_date": app.interview_scheduled.isoformat() if hasattr(app, 'interview_scheduled') and app.interview_scheduled else None
-            })
-    
+ 
+        result.append({
+            "id": application.id,
+            "jobTitle": job.title,
+            "company": job.company_name,
+            "status": application.status,
+            "appliedDate": application.applied_date.strftime("%Y-%m-%d") if application.applied_date else None,
+            "nextStep": next_step,
+            "interview_date": application.interview_scheduled.isoformat() if application.interview_scheduled else None
+        })
+ 
     return result
 
+
 @app.patch("/api/applications/{application_id}")
-async def update_application(
+def update_application(
     application_id: int,
     update: JobApplicationUpdate,
-    current_user_id: int = Depends(get_current_user_id),
+    current_user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
-    """Update application status and notes"""
-    
+    """Update application status, notes and interview date"""
+    from datetime import timezone
+ 
     application = db.query(JobApplication).filter(
         and_(
             JobApplication.id == application_id,
-            JobApplication.user_id == current_user_id
+            JobApplication.user_id == int(current_user_id)
         )
     ).first()
-    
+ 
     if not application:
         raise HTTPException(status_code=404, detail="Application not found")
-    
-    # Update fields
+ 
     if update.status:
         application.status = update.status
-    if update.notes:
-        application.notes = update.notes
+ 
+    # The model columns are user_notes / interview_scheduled. The old code set
+    # `notes` / `interview_date`, which don't exist, so nothing was ever saved.
+    if update.notes is not None:
+        application.user_notes = update.notes
+ 
     if update.interview_date:
-        application.interview_date = datetime.fromisoformat(update.interview_date)
-    
+        try:
+            # Browsers send e.g. 2026-09-25T10:00:00.000Z; older Pythons can't parse the "Z"
+            dt = datetime.fromisoformat(update.interview_date.replace("Z", "+00:00"))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid interview_date format")
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        application.interview_scheduled = dt
+ 
     application.updated_at = datetime.utcnow()
     db.commit()
-    
+ 
     return {
         "message": "Application updated successfully",
         "status": application.status
     }
+ 
+
+
 
 @app.get("/api/jobs/search")
 async def search_jobs(
@@ -2351,40 +2373,82 @@ def fetch_jobs_and_send_alerts():
     """Send job alerts based on jobs already in the database.
     Fetching is handled by fetch_jobs_task (cron), so we don't fetch again here."""
     db = SessionLocal()
+    stats = {
+        "alerts_checked": 0,
+        "emails_sent": 0,
+        "skipped_recent": 0,
+        "no_new_matches": 0,
+        "failed": 0,
+    }
+ 
     try:
-        print("Sending job alerts...")
+        now = datetime.utcnow()
         alerts = db.query(JobAlert).filter(JobAlert.is_active == True).all()
-
+ 
         for alert in alerts:
+            stats["alerts_checked"] += 1
             try:
+                if alert.last_sent and now - alert.last_sent < timedelta(hours=20):
+                    stats["skipped_recent"] += 1
+                    continue
+ 
                 matches = matching_engine.find_matching_jobs(
-                    alert.user_id, db, limit=10, min_score=alert.min_match_score
+                    alert.user_id, db, limit=50, min_score=alert.min_match_score
                 )
-
-                if matches:
-                    jobs_to_send = [
-                        {
-                            'title': job.title,
-                            'company': job.company_name,
-                            'location': job.location,
-                            'match_score': round(scores['overall_score']),
-                            'apply_url': job.apply_url or '#'
-                        }
-                        for job, scores in matches
+ 
+                # Only jobs added since the last email
+                if alert.last_sent:
+                    matches = [
+                        (job, scores) for job, scores in matches
+                        if job.created_at and job.created_at > alert.last_sent
                     ]
-
-                    import asyncio
-                    asyncio.run(send_job_alert_email(alert.email, jobs_to_send))
-
-                    alert.last_sent = datetime.utcnow()
-                    db.commit()
+ 
+                matches = matches[:10]
+                if not matches:
+                    stats["no_new_matches"] += 1
+                    continue
+ 
+                jobs_to_send = [
+                    {
+                        'title': job.title,
+                        'company': job.company_name,
+                        'location': job.location,
+                        'match_score': round(scores['overall_score']),
+                        'apply_url': job.apply_url or '#'
+                    }
+                    for job, scores in matches
+                ]
+ 
+                import asyncio
+                asyncio.run(send_job_alert_email(alert.email, jobs_to_send))
+ 
+                alert.last_sent = now
+                db.commit()
+                stats["emails_sent"] += 1
+ 
             except Exception as e:
                 db.rollback()
+                stats["failed"] += 1
                 print(f"  Alert failed for user {alert.user_id}: {e}")
-
-        print("Job alerts completed")
+ 
+        print(f"Job alerts completed: {stats}")
+        return stats
     finally:
         db.close()
+
+@app.post("/api/admin/send-alerts")
+def manual_send_alerts(
+    x_admin_secret: Optional[str] = Header(None),
+):
+    """Send job alert emails. Protected by admin secret.
+    Point an external cron (cron-job.org) at this once a day so it doesn't
+    depend on the in-process scheduler firing while Render is asleep."""
+    require_admin(x_admin_secret)
+ 
+    stats = fetch_jobs_and_send_alerts()
+    return {"status": "success", **stats}
+ 
+ 
 
 # def fetch_jobs_task():
 #     """Fetch fresh jobs from Adzuna and clean old ones"""
@@ -2446,11 +2510,8 @@ def fetch_jobs_task():
     return stats
 
 
-# Alerts - once daily
-scheduler.add_job(fetch_jobs_and_send_alerts, 'cron', hour=21, minute=30, id='daily_alerts')
 
-scheduler.start()
-print("✅ Job scheduler started - Running at 9 AM, 2 PM, and 8 PM daily")
+
 
 
 # Shutdown scheduler on exit
@@ -2558,15 +2619,32 @@ async def get_all_users(
 #     total = fetch_jobs_task()
 #     return {"status": "success", "total_fetched": total}
 
+_fetch_lock = threading.Lock()
+
+def _run_fetch_guarded():
+    """Skip if a fetch is already running, so a cron retry can't overlap a run."""
+    if not _fetch_lock.acquire(blocking=False):
+        print("Job fetch already running, skipping this trigger")
+        return
+    try:
+        fetch_jobs_task()
+    except Exception as e:
+        print(f"Job fetch failed: {e}")
+    finally:
+        _fetch_lock.release()
+
 @app.post("/api/admin/run-job-fetch")
 def manual_run_job_fetch(
+    background_tasks: BackgroundTasks,
     x_admin_secret: Optional[str] = Header(None),
 ):
-    
+    """Trigger the full fetch+cleanup cycle in the background. Protected by admin secret.
+    Point an external cron (cron-job.org) at this 3x/day. It returns immediately;
+    the results (stats) are printed to the server logs when the run finishes."""
     require_admin(x_admin_secret)
  
-    stats = fetch_jobs_task()
-    return {"status": "success", "total_fetched": stats["fetched"], "stats": stats}
+    background_tasks.add_task(_run_fetch_guarded)
+    return {"status": "started"}
 
 @app.post("/api/admin/cleanup-old-jobs")
 async def manual_cleanup_old_jobs(
