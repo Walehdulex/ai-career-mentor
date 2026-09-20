@@ -200,6 +200,13 @@ class JobAPIService:
 
                 title = job.get("jobTitle") or ""
                 description = job.get("jobDescription") or ""
+                sal_min = job.get("minimumSalary")
+                sal_max = job.get("maximumSalary")
+                employment_type = self._guess_employment_type(f"{title} {description}")
+                if max(sal_min or 0, sal_max or 0) < 5000:
+                    if sal_min or sal_max:
+                        employment_type = "contract"
+                    sal_min = sal_max = None
 
                 jobs.append(
                     {
@@ -207,15 +214,15 @@ class JobAPIService:
                         "company_name": job.get("employerName") or "Unknown",
                         "location": job.get("locationName") or "",
                         "description": description,
-                        "salary_min": job.get("minimumSalary"),
-                        "salary_max": job.get("maximumSalary"),
+                        "salary_min": sal_min,
+                        "salary_max": sal_max,
                         "salary_currency": job.get("currency") or "GBP",
                         "external_id": str(job.get("jobId", "")),
                         "source": "reed",
                         "apply_url": job.get("jobUrl"),
                         "posted_date": posted_date,
                         "remote_type": self._detect_remote_type(f"{title} {description}"),
-                        "employment_type": self._guess_employment_type(f"{title} {description}"),
+                        "employment_type": employment_type,
                         "is_active": True,
                     }
                 )
