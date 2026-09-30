@@ -12,22 +12,76 @@ logger = logging.getLogger(__name__)
 # Single place to edit the search terms. Every query costs one API call per
 # enabled source, so trim this list if you hit rate limits.
 JOB_QUERIES = [
+    # Software Engineering
+    "software engineer",
     "software developer",
+    "application developer",
+    "software development engineer",
+    "systems developer",
+    "full stack developer",
     "frontend developer",
     "backend developer",
-    "full stack developer",
-    "python developer",
-    "junior developer",
-    "senior developer",
+    "web developer",
+    "Python developer",
+    "Java developer",
+
+    # Graduate / Junior
+    "graduate software engineer",
+    "graduate software developer",
+    "junior software engineer",
+    "junior software developer",
+
+    # Data
     "data analyst",
+    "data analyst intern",
+    "graduate data analyst",
     "junior data analyst",
-    "senior data analyst",
-    "business analyst",
-    "data scientist",
-    "machine learning engineer",
-    "AI engineer",
+    "data analytics",
     "data engineer",
+    "junior data engineer",
+    "graduate data engineer",
+    "analytics engineer",
+    "business intelligence analyst",
+    "BI analyst",
+    "data scientist",
+    "junior data scientist",
+
+    # AI / ML
+    "AI engineer",
+    "AI developer",
+    "machine learning engineer",
+    "machine learning developer",
+
+    # Cloud / DevOps
+    "cloud engineer",
+    "cloud developer",
+    "DevOps engineer",
+    "platform engineer",
+
+    # Business / Technical
+    "business analyst",
+    "graduate business analyst",
+    "systems analyst",
+    "IT analyst",
+    "technology analyst",
+    "technical consultant",
+    "technology consultant",
+    "IT consultant",
+    "solutions engineer",
+
+    # Testing / QA
+    "QA engineer",
+    "software test engineer",
+    "test engineer",
+    "test automation engineer",
+
+    # Infrastructure / Security
+    "infrastructure engineer",
+    "application support engineer",
+    "technical support engineer",
+    "cybersecurity analyst",
 ]
+
 
 _service = JobAPIService()  # only used for skill extraction
 

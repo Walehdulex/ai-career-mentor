@@ -35,23 +35,26 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchStats(); }, []);
 
-  async function fetchStats() {
-    setStatsLoading(true);
-    try {
-      const [dbRes, schedRes] = await Promise.all([
-        fetch(`${API_URL}/api/admin/check-jobs`),
-        fetch(`${API_URL}/api/admin/scheduler-status`),
-      ]);
-      const db = await dbRes.json();
-      const sched = await schedRes.json();
-      setStats(db);
-      setSchedulerStatus(sched);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setStatsLoading(false);
-    }
+ async function fetchStats() {
+  setStatsLoading(true);
+  try {
+    const headers = {
+      "x-admin-secret": process.env.NEXT_PUBLIC_ADMIN_SECRET || "",
+    };
+    const [dbRes, schedRes] = await Promise.all([
+      fetch(`${API_URL}/api/admin/check-jobs`, { headers }),
+      fetch(`${API_URL}/api/admin/scheduler-status`, { headers }),
+    ]);
+    const db = await dbRes.json();
+    const sched = await schedRes.json();
+    setStats(db);
+    setSchedulerStatus(sched);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setStatsLoading(false);
   }
+}
 
   async function fetchUsers() {
     try {
@@ -71,20 +74,25 @@ export default function AdminDashboard() {
   }, [activeTab]);
 
   async function runAction(path: string, method = "GET") {
-    setLoading(true);
-    setActionResult(null);
-    setActionError(null);
-    try {
-      const res = await fetch(`${API_URL}${path}`, { method });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
-      setActionResult(data);
-    } catch (err: any) {
-      setActionError(err.message);
-    } finally {
-      setLoading(false);
-    }
+  setLoading(true);
+  setActionResult(null);
+  setActionError(null);
+  try {
+    const res = await fetch(`${API_URL}${path}`, {
+      method,
+      headers: {
+        "x-admin-secret": process.env.NEXT_PUBLIC_ADMIN_SECRET || "",
+      },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || `Error ${res.status}`);
+    setActionResult(data);
+  } catch (err: any) {
+    setActionError(err.message);
+  } finally {
+    setLoading(false);
   }
+}
 
   async function logout() {
     await fetch("/api/admin-auth", { method: "DELETE" });

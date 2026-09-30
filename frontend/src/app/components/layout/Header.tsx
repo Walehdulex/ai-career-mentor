@@ -12,7 +12,7 @@ const AUTH_NAV = [
   { href: '/chat',         label: 'AI Chat' },
   { href: '/dashboard/jobs',         label: 'Jobs' },
   { href: '/interview',    label: 'Interview' },
-  { href: '/applications', label: 'Applications' },
+  // { href: '/applications', label: 'Applications' },
 ];
 
 const GUEST_NAV = [

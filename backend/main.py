@@ -2605,19 +2605,6 @@ async def get_all_users(
         for u in users
     ]
 
-# @app.post("/api/admin/run-job-fetch")
-# async def manual_run_job_fetch(
-#     x_admin_secret: Optional[str] = Header(None),
-# ):
-#     """Manually trigger the full fetch+cleanup cycle. Protected by admin secret.
-#     Point an external cron (cron-job.org, UptimeRobot) at this 3x/day so it
-#     doesn't depend on the in-process APScheduler firing while Render is asleep."""
-#     admin_secret = os.getenv("ADMIN_SECRET", "")
-#     if not admin_secret or x_admin_secret != admin_secret:
-#         raise HTTPException(status_code=403, detail="Admin access only")
-
-#     total = fetch_jobs_task()
-#     return {"status": "success", "total_fetched": total}
 
 _fetch_lock = threading.Lock()
 
