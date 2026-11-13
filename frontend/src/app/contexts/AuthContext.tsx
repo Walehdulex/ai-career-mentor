@@ -209,28 +209,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const updateProfile = async (profileData: Partial<UserProfile>) => {
-    if (!token) {
-      throw new Error('Not authenticated')
-    }
+  // const updateProfile = async (profileData: Partial<UserProfile>) => {
+  //   if (!token) {
+  //     throw new Error('Not authenticated')
+  //   }
 
-    try {
-      // ✅ FIXED: Use apiClient instead of hardcoded URL
-      const response = await apiClient.patch('/api/auth/profile', profileData)
+  //   try {
+  //     // ✅ FIXED: Use apiClient instead of hardcoded URL
+  //     const response = await apiClient.patch('/api/auth/profile', profileData)
       
-      setUserProfile(response.data)
-      // Also update user if the response includes user data
-      if (response.data) {
-        setUser(prev => prev ? { ...prev, ...response.data } : null)
-      }
-    } catch (error: unknown) {
-      console.error('Error updating profile:', error)
-      const errorMessage = error instanceof Error && 'response' in error 
-        ? (error as any).response?.data?.detail || 'Failed to update profile'
-        : 'Failed to update profile'
-      throw new Error(errorMessage)
-    }
+  //     setUserProfile(response.data)
+  //     // Also update user if the response includes user data
+  //     if (response.data) {
+  //       setUser(prev => prev ? { ...prev, ...response.data } : null)
+  //     }
+  //   } catch (error: unknown) {
+  //     console.error('Error updating profile:', error)
+  //     const errorMessage = error instanceof Error && 'response' in error 
+  //       ? (error as any).response?.data?.detail || 'Failed to update profile'
+  //       : 'Failed to update profile'
+  //     throw new Error(errorMessage)
+  //   }
+  // }
+
+  const updateProfile = async (profileData: Partial<UserProfile>) => {
+  if (!token) throw new Error('Not authenticated')
+
+  try {
+    await apiClient.patch('/api/auth/profile', profileData)
+
+    // Backend only returns a message, so merge what we sent
+    setUserProfile(prev => (prev ? { ...prev, ...profileData } : prev))
+    setUser(prev => (prev ? { ...prev, ...profileData } : prev))
+  } catch (error: any) {
+    console.error('Error updating profile:', error)
+    throw new Error(error?.response?.data?.detail || 'Failed to update profile')
   }
+}
 
   const value = {
     user,

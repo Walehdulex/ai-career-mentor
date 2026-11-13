@@ -285,22 +285,7 @@ export default function JobAlertsPage() {
           )}
         </div>
 
-        {/* Info Section
-        <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-yellow-900 mb-3">📧 Email Setup Required</h3>
-          <p className="text-sm text-yellow-800 mb-3">
-            To receive job alerts, your backend needs email configuration. Make sure these environment variables are set:
-          </p>
-          <div className="bg-yellow-100 rounded p-3 font-mono text-xs text-yellow-900">
-            SMTP_HOST=smtp.gmail.com<br />
-            SMTP_PORT=587<br />
-            SMTP_USER=your-email@gmail.com<br />
-            SMTP_PASSWORD=your-app-password
-          </div>
-          <p className="text-xs text-yellow-700 mt-3">
-            For Gmail, you need to create an App Password in your Google Account security settings.
-          </p>
-        </div> */}
+      
 
         {/* Tips Section */}
         <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-6">

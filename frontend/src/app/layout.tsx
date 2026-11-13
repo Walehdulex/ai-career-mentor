@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from './contexts/AuthContext'
 import { ChatProvider } from "./contexts/ChatContext";
+import { MobileBottomNav } from "./components/layout/Header";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +29,7 @@ export default function RootLayout({children}: Readonly<{children: React.ReactNo
         <AuthProvider>
           <ChatProvider>
             {children}
+             <MobileBottomNav />  
           </ChatProvider>
         </AuthProvider>
       </body>
