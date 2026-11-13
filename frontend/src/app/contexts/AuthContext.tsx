@@ -112,12 +112,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('🔑 Token preview:', access_token?.substring(0, 50) + '...')
     console.log('👤 User data:', userData)
     
-    // Store token
-    setToken(access_token)
-    setUser(userData)
-    setUserProfile(userData)
+    // Store token first so the interceptor can attach it
     localStorage.setItem('auth_token', access_token)
     localStorage.setItem('token', access_token)
+    setToken(access_token)
+
+    // Then load the full user (includes created_at and career fields)
+    let fullUser = userData
+    try {
+      const me = await authAPI.getProfile()
+      fullUser = me.data
+    } catch (err) {
+      console.error('Could not load full profile after login:', err)
+    }
+    setUser(fullUser)
+    setUserProfile(fullUser)
     
     // ✅ Verify token was saved
     const savedToken = localStorage.getItem('token')
@@ -139,31 +148,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const register = async (username: string, email: string, password: string, fullName: string) => {
+  try {
+    const response = await authAPI.register({
+      username,
+      email,
+      password,
+      full_name: fullName,
+    })
+
+    const { access_token, user: userData } = response.data
+
+    // Store token first so the interceptor can attach it
+    localStorage.setItem('auth_token', access_token)
+    localStorage.setItem('token', access_token)
+    setToken(access_token)
+
+    // Then load the full user (includes created_at and career fields)
+    let fullUser = userData
     try {
-      // ✅ FIXED: Use authAPI instead of hardcoded URL
-      const response = await authAPI.register({
-        username,
-        email,
-        password,
-        full_name: fullName
-      })
-
-      const { access_token, user: userData } = response.data
-      
-      setToken(access_token)
-      setUser(userData)
-      setUserProfile(userData)
-      localStorage.setItem('auth_token', access_token)
-      localStorage.setItem('token', access_token)
-
-      return { success: true }
-    } catch (error: unknown) {
-      const errorMessage = error instanceof Error && 'response' in error 
-        ? (error as any).response?.data?.detail || 'Registration failed'
-        : 'Registration failed'
-      return { success: false, error: errorMessage }
+      const me = await authAPI.getProfile()
+      fullUser = me.data
+    } catch (err) {
+      console.error('Could not load full profile after register:', err)
     }
+    setUser(fullUser)
+    setUserProfile(fullUser)
+
+    return { success: true }
+  } catch (error: any) {
+    const detail = error?.response?.data?.detail
+    // FastAPI validation errors (422) come back as an array of objects
+    const errorMessage = Array.isArray(detail)
+      ? detail.map((d: any) => d.msg).join(', ')
+      : detail || 'Registration failed'
+    return { success: false, error: errorMessage }
   }
+}
 
   const logout = () => {
     setUser(null)
