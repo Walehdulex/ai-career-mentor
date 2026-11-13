@@ -129,6 +129,7 @@ export default function UserDashboard() {
           </nav>
         </aside>
 
+<<<<<<< Updated upstream
         {/* Main content */}
         <div className="flex-1">
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-sm">
@@ -165,6 +166,22 @@ export default function UserDashboard() {
                       </p>
                     </div>
                   </div>
+=======
+        {/* Navigation shortcuts — visible on mobile since sidebar is gone */}
+        <div className="sm:hidden">
+          <h2 className="text-base font-semibold text-gray-900 mb-3">More</h2>
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-100">
+            {[
+              { href: '/dashboard/jobs?tab=applications', label: 'My Applications', icon: <Target className="w-4 h-4 text-gray-400" /> },
+              { href: '/dashboard/jobs',         label: 'Job Board',        icon: <Briefcase className="w-4 h-4 text-gray-400" /> },
+              { href: '/profile',      label: 'Profile Settings', icon: <Settings className="w-4 h-4 text-gray-400" /> },
+            ].map(item => (
+              <Link key={item.label} href={item.href}
+                className="flex items-center justify-between px-4 py-3.5 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  {item.icon}
+                  <span className="text-sm font-medium text-gray-700">{item.label}</span>
+>>>>>>> Stashed changes
                 </div>
               ))}
             </div>

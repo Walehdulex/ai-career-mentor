@@ -2,9 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { Briefcase, MapPin, DollarSign, TrendingUp, Star, Bookmark, Filter, Search, X, Check, Building2, Clock, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
+<<<<<<< Updated upstream
 import  { Calendar, FileText, Edit2} from 'lucide-react'
 
 // ... (keep all your existing interfaces: Job, Application, etc.)
+=======
+import { Calendar, FileText, Edit2 } from 'lucide-react'
+import { useAuth } from '@/app/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
+import { apiClient } from "../../../../lib/api"
+import { MobileBottomNav } from '@/app/components/layout/Header'
+import { useSearchParams } from 'next/navigation'
+
+>>>>>>> Stashed changes
 
 interface Job {
   id: number;
@@ -85,7 +95,8 @@ const formatJobDate = (dateString: string) => {
 
 export default function JobsPage() {
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
-  const [activeTab, setActiveTab] = useState('recommended');
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] =  useState(searchParams.get('tab') || 'recommended');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [savedJobs, setSavedJobs] = useState(new Set<number>());
