@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import axios from 'axios'
+import { FileText, AlertCircle, CheckCircle2, Loader2, Copy, Check, Download, Lightbulb } from 'lucide-react'
 import { apiClient } from '../../../lib/api'
 
 interface CoverLetterResult {
@@ -17,6 +17,10 @@ interface CoverLetterGeneratorProps {
   resumeData?: any
 }
 
+const labelClass = 'block text-sm font-medium text-gray-700 mb-1.5'
+const inputClass =
+  'w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+
 export default function CoverLetterGenerator({ resumeData }: CoverLetterGeneratorProps) {
   const [jobDescription, setJobDescription] = useState('')
   const [companyName, setCompanyName] = useState('')
@@ -25,10 +29,11 @@ export default function CoverLetterGenerator({ resumeData }: CoverLetterGenerato
   const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState<CoverLetterResult | null>(null)
   const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const generateCoverLetter = async () => {
     if (!jobDescription.trim() || !companyName.trim() || !positionTitle.trim()) {
-      setError('Please fill in all required fields')
+      setError('Please fill in the company, position and job description')
       return
     }
 
@@ -47,7 +52,7 @@ export default function CoverLetterGenerator({ resumeData }: CoverLetterGenerato
         job_description: jobDescription,
         company_name: companyName,
         position_title: positionTitle,
-        tone: tone
+        tone: tone,
       })
 
       if (response.data.status === 'success') {
@@ -66,29 +71,29 @@ export default function CoverLetterGenerator({ resumeData }: CoverLetterGenerato
   const copyToClipboard = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      // You could add a toast notification here
-      alert('Copied to clipboard!')
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     } catch (error) {
       console.error('Failed to copy to clipboard:', error)
+      setError('Could not copy to the clipboard')
     }
   }
 
   const downloadAsDocx = async (content: string, filename: string, docType: string) => {
     try {
-      const response = await axios.post(
-        `${apiClient.defaults.baseURL}/api/generate-${docType}-docx`,
+      // Uses apiClient so the auth token is sent
+      const response = await apiClient.post(
+        `/api/generate-${docType}-docx`,
         {
           content: content,
           filename: filename,
           doc_type: docType,
           company_name: companyName,
-          position_title: positionTitle
+          position_title: positionTitle,
         },
-        {
-          responseType: 'blob'
-        }
+        { responseType: 'blob' }
       )
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]))
       const element = document.createElement('a')
       element.href = url
@@ -99,186 +104,154 @@ export default function CoverLetterGenerator({ resumeData }: CoverLetterGenerato
       window.URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Error downloading DOCX:', error)
-      alert('Error downloading DOCX file')
+      setError('Could not download the DOCX file. Please try again.')
     }
   }
 
-  const downloadAsText = (text: string, filename: string) => {
-    const element = document.createElement('a')
-    const file = new Blob([text], { type: 'text/plain' })
-    element.href = URL.createObjectURL(file)
-    element.download = filename
-    document.body.appendChild(element)
-    element.click()
-    document.body.removeChild(element)
-  }
-
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            📄 AI Cover Letter Generator
-          </h2>
-          <p className="text-gray-600">
-            Generate personalized cover letters tailored to specific job opportunities
-          </p>
+    <section className="bg-white rounded-xl border border-gray-100 shadow-sm">
+      <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg bg-green-600 flex items-center justify-center shrink-0">
+          <FileText className="w-5 h-5 text-white" />
         </div>
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Cover letter</h2>
+          <p className="text-sm text-gray-500">Write a cover letter tailored to a specific job</p>
+        </div>
+      </div>
 
+      <div className="p-5 sm:p-6 space-y-5">
         {!resumeData && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-              <p className="text-yellow-800">
-                Please upload and analyze a resume first to generate personalized cover letters.
-              </p>
-            </div>
+          <div className="flex items-start gap-2 rounded-lg bg-yellow-50 border border-yellow-200 px-4 py-3 text-sm text-yellow-800">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <p>Upload and analyze a resume first to write a personalized cover letter.</p>
           </div>
         )}
 
-        {/* Input Form */}
-        <div className="space-y-6">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Company Name *
-              </label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="e.g., Google, Microsoft, Stripe"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Position Title *
-              </label>
-              <input
-                type="text"
-                value={positionTitle}
-                onChange={(e) => setPositionTitle(e.target.value)}
-                placeholder="e.g., Senior Frontend Developer, DevOps Engineer"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Tone Style
-            </label>
-            <select
-              value={tone}
-              onChange={(e) => setTone(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="professional">Professional & Formal</option>
-              <option value="friendly">Friendly & Approachable</option>
-              <option value="enthusiastic">Enthusiastic & Energetic</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Job Description *
-            </label>
-            <textarea
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-              placeholder="Paste the complete job description here. Include requirements, responsibilities, and company information for the best results..."
-              rows={6}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-black focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+            <label className={labelClass}>Company name *</label>
+            <input
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="e.g. Monzo, Stripe"
+              className={inputClass}
             />
           </div>
-
-          <button
-            onClick={generateCoverLetter}
-            disabled={isGenerating || !resumeData}
-            className="w-full bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
-          >
-            {isGenerating ? (
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                Generating Cover Letter...
-              </div>
-            ) : (
-              'Generate Cover Letter'
-            )}
-          </button>
+          <div>
+            <label className={labelClass}>Position title *</label>
+            <input
+              type="text"
+              value={positionTitle}
+              onChange={(e) => setPositionTitle(e.target.value)}
+              placeholder="e.g. Frontend Developer"
+              className={inputClass}
+            />
+          </div>
         </div>
 
-        {/* Error Message */}
+        <div>
+          <label className={labelClass}>Tone</label>
+          <select value={tone} onChange={(e) => setTone(e.target.value)} className={inputClass}>
+            <option value="professional">Professional and formal</option>
+            <option value="friendly">Friendly and approachable</option>
+            <option value="enthusiastic">Enthusiastic and energetic</option>
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>Job description *</label>
+          <textarea
+            value={jobDescription}
+            onChange={(e) => setJobDescription(e.target.value)}
+            placeholder="Paste the full job description, including requirements and responsibilities."
+            rows={6}
+            className={`${inputClass} resize-y`}
+          />
+        </div>
+
+        <button
+          onClick={generateCoverLetter}
+          disabled={isGenerating || !resumeData}
+          className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-sm"
+        >
+          {isGenerating ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Writing your cover letter...
+            </span>
+          ) : (
+            'Generate cover letter'
+          )}
+        </button>
+
         {error && (
-          <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-red-800 font-medium">Error</p>
-            </div>
-            <p className="text-red-700 text-sm mt-1">{error}</p>
+          <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <p>{error}</p>
           </div>
         )}
 
-        {/* Generated Cover Letter */}
         {result && (
-          <div className="mt-8 space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex items-center mb-2">
-                <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <h3 className="text-green-800 font-medium">Cover Letter Generated Successfully!</h3>
-              </div>
-              <div className="text-green-700 text-sm">
-                <p>Position: {result.position_title} at {result.company_name}</p>
-                <p>Word Count: {result.word_count} words | Tone: {result.tone}</p>
+          <div className="pt-2 space-y-5">
+            <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">Cover letter ready</p>
+                <p className="text-green-700">
+                  {result.position_title} at {result.company_name}, {result.word_count} words, {result.tone} tone
+                </p>
               </div>
             </div>
 
-            {/* Cover Letter Display */}
-            <div className="bg-white border rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Your Cover Letter</h3>
-                <div className="flex space-x-2">
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-900">Your cover letter</h3>
+                <div className="flex gap-2">
                   <button
                     onClick={() => copyToClipboard(result.cover_letter)}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm transition-colors"
+                    className="flex items-center gap-1.5 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm transition-colors"
                   >
-                    Copy
+                    {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                    {copied ? 'Copied' : 'Copy'}
                   </button>
                   <button
-                    onClick={() => downloadAsDocx(result.cover_letter, `cover-letter-${result.company_name.toLowerCase()}-${result.position_title.toLowerCase().replace(/\s+/g, '-')}.docx`, 'cover-letter')}
-                    className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-md text-sm transition-colors"
+                    onClick={() =>
+                      downloadAsDocx(
+                        result.cover_letter,
+                        `cover-letter-${result.company_name.toLowerCase()}-${result.position_title
+                          .toLowerCase()
+                          .replace(/\s+/g, '-')}.docx`,
+                        'cover-letter'
+                      )
+                    }
+                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
                   >
-                    Download DOCX
+                    <Download className="w-4 h-4" />
+                    DOCX
                   </button>
                 </div>
               </div>
-              <div className="prose max-w-none">
-                <div className="whitespace-pre-wrap text-gray-800 leading-relaxed font-mono text-sm bg-gray-50 p-4 rounded border">
-                  {result.cover_letter}
-                </div>
+              <div className="p-4 sm:p-5 whitespace-pre-wrap text-gray-800 text-sm leading-relaxed">
+                {result.cover_letter}
               </div>
             </div>
 
-            {/* Optimization Tips */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-blue-900 mb-3">
-                💡 Optimization Tips
-              </h3>
-              <div className="whitespace-pre-wrap text-blue-800 text-sm leading-relaxed">
-                {result.optimization_tips}
+            {result.optimization_tips && (
+              <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 sm:p-5">
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-blue-900 mb-2">
+                  <Lightbulb className="w-4 h-4" />
+                  Tips to improve it
+                </h3>
+                <div className="whitespace-pre-wrap text-blue-900 text-sm leading-relaxed">
+                  {result.optimization_tips}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
-    </div>
+    </section>
   )
 }
