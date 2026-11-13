@@ -3,23 +3,36 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { MobileBottomNav } from "../components/layout/Header";
+import { Code2, Sparkles, Lightbulb, Users, Loader2, AlertCircle, ChevronRight } from "lucide-react";
+import { Header, MobileBottomNav } from "../components/layout/Header";
 import ProtectedRoute from "../components/auth/ProtectedRoute";
+import apiClient from "../../../lib/apiService";
 
 const INTERVIEW_TYPES = [
-  { id: "technical",    label: "Technical",    icon: "💻", desc: "Coding, system design, problem solving" },
-  { id: "behavioural",  label: "Behavioural",  icon: "🌟", desc: "STAR-format past experience questions" },
-  { id: "situational",  label: "Situational",  icon: "🤔", desc: "\"What would you do if...\" scenarios" },
-  { id: "hr",           label: "HR / Culture", icon: "🤝", desc: "Values, motivation, teamwork fit" },
+  { id: "technical", label: "Technical", icon: Code2, iconBg: "bg-blue-600", desc: "Coding, system design, problem solving" },
+  { id: "behavioural", label: "Behavioural", icon: Sparkles, iconBg: "bg-purple-600", desc: "STAR-format past experience questions" },
+  { id: "situational", label: "Situational", icon: Lightbulb, iconBg: "bg-orange-500", desc: "\"What would you do if...\" scenarios" },
+  { id: "hr", label: "HR / Culture", icon: Users, iconBg: "bg-green-600", desc: "Values, motivation, teamwork fit" },
 ];
 
 const DIFFICULTIES = [
-  { id: "easy",   label: "Entry Level",  desc: "0–2 years experience" },
-  { id: "medium", label: "Mid Level",    desc: "2–5 years experience" },
-  { id: "hard",   label: "Senior Level", desc: "5+ years experience" },
+  { id: "easy", label: "Entry level", desc: "0–2 years experience" },
+  { id: "medium", label: "Mid level", desc: "2–5 years experience" },
+  { id: "hard", label: "Senior level", desc: "5+ years experience" },
 ];
 
 const QUESTION_COUNTS = [5, 10, 15];
+
+const inputClass =
+  "w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+
+const cardClass = "bg-white rounded-xl border border-gray-100 shadow-sm p-5 sm:p-6";
+
+function optionClass(selected: boolean) {
+  return `rounded-xl border-2 transition-all ${
+    selected ? "border-blue-600 bg-blue-50" : "border-gray-200 bg-white hover:border-gray-300"
+  }`;
+}
 
 function SetupContent() {
   const router = useRouter();
@@ -33,175 +46,192 @@ function SetupContent() {
 
   async function handleStart(e: React.FormEvent) {
     e.preventDefault();
-    if (!role.trim()) { setError("Please enter the role you're interviewing for."); return; }
+    if (!role.trim()) {
+      setError("Please enter the role you're interviewing for.");
+      return;
+    }
     setLoading(true);
     setError("");
 
     try {
-      // Read token at submit time — tries both keys in case of register vs login
-      const token = localStorage.getItem("auth_token") || localStorage.getItem("token");
-      if (!token) { setError("You must be logged in to start an interview."); setLoading(false); return; }
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/interview/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          role: role.trim(),
-          company: company.trim() || null,
-          interview_type: interviewType,
-          difficulty,
-          num_questions: numQuestions,
-        }),
+      const res = await apiClient.post("/api/interview/start", {
+        role: role.trim(),
+        company: company.trim() || null,
+        interview_type: interviewType,
+        difficulty,
+        num_questions: numQuestions,
       });
+      const data = res.data;
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to start interview.");
-
-      // Store session in sessionStorage for the live page
+      // The live session page reads this
       sessionStorage.setItem("interview_session", JSON.stringify(data));
       router.push(`/interview/session?id=${data.session_id}`);
     } catch (err: any) {
-      setError(err.message);
+      const detail = err.response?.data?.detail;
+      setError(typeof detail === "string" ? detail : "Failed to start the interview. Please try again.");
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
-            <span className="text-white text-sm font-bold">M</span>
-          </div>
-          <span className="font-semibold text-gray-900">Mock Interview</span>
+    <div className="min-h-screen bg-gray-50 pb-24 sm:pb-0">
+      <Header />
+
+      {/* Banner, same gradient as the dashboard */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <h1 className="text-xl sm:text-3xl font-bold mb-1 leading-tight">Mock interview</h1>
+          <p className="text-blue-100 text-sm">
+            AI-generated questions for your role and level, with scoring and feedback on every answer.
+          </p>
         </div>
-        <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700">← Dashboard</Link>
       </div>
 
-      <div className="max-w-2xl mx-auto py-10 px-4">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Set up your interview</h1>
-          <p className="text-gray-500">AI-powered questions tailored to your role and experience level</p>
-        </div>
-
-        <form onSubmit={handleStart} className="space-y-6">
-          {/* Role + Company */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
-            <h2 className="font-semibold text-gray-900">About the role</h2>
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
+        <form onSubmit={handleStart} className="space-y-5">
+          {/* Role and company */}
+          <section className={`${cardClass} space-y-4`}>
+            <h2 className="text-base font-semibold text-gray-900">About the role</h2>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Job title / Role <span className="text-red-500">*</span>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Job title <span className="text-red-500">*</span>
               </label>
               <input
-                type="text" value={role} onChange={e => setRole(e.target.value)}
-                placeholder="e.g. Software Engineer, Data Analyst, Product Manager"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-900
-                           placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                id="role"
+                type="text"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                placeholder="e.g. Software Engineer, Data Analyst"
+                className={inputClass}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="company" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Company <span className="text-gray-400 font-normal">(optional)</span>
               </label>
               <input
-                type="text" value={company} onChange={e => setCompany(e.target.value)}
-                placeholder="e.g. Google, NHS, Deloitte"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-900
-                           placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                id="company"
+                type="text"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="e.g. Monzo, NHS, Deloitte"
+                className={inputClass}
               />
             </div>
-          </div>
+          </section>
 
-          {/* Interview Type */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">Interview type</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {INTERVIEW_TYPES.map(t => (
-                <button key={t.id} type="button" onClick={() => setInterviewType(t.id)}
-                  className={`p-4 rounded-xl border-2 text-left transition-all ${
-                    interviewType === t.id
-                      ? "border-indigo-500 bg-indigo-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}>
-                  <div className="text-2xl mb-1">{t.icon}</div>
-                  <div className="font-medium text-gray-900 text-sm">{t.label}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{t.desc}</div>
-                </button>
-              ))}
+          {/* Interview type */}
+          <section className={cardClass}>
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Interview type</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {INTERVIEW_TYPES.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setInterviewType(t.id)}
+                    aria-pressed={interviewType === t.id}
+                    className={`${optionClass(interviewType === t.id)} p-4 text-left flex items-start gap-3`}
+                  >
+                    <div className={`${t.iconBg} w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-gray-900 text-sm">{t.label}</div>
+                      <div className="text-xs text-gray-500 mt-0.5 leading-snug">{t.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-          </div>
+          </section>
 
           {/* Difficulty */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">Difficulty</h2>
-            <div className="grid grid-cols-3 gap-3">
-              {DIFFICULTIES.map(d => (
-                <button key={d.id} type="button" onClick={() => setDifficulty(d.id)}
-                  className={`p-4 rounded-xl border-2 text-center transition-all ${
-                    difficulty === d.id
-                      ? "border-indigo-500 bg-indigo-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}>
-                  <div className="font-medium text-gray-900 text-sm">{d.label}</div>
+          <section className={cardClass}>
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Difficulty</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {DIFFICULTIES.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setDifficulty(d.id)}
+                  aria-pressed={difficulty === d.id}
+                  className={`${optionClass(difficulty === d.id)} p-4 text-center`}
+                >
+                  <div className="font-semibold text-gray-900 text-sm">{d.label}</div>
                   <div className="text-xs text-gray-500 mt-0.5">{d.desc}</div>
                 </button>
               ))}
             </div>
-          </div>
+          </section>
 
           {/* Number of questions */}
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
-            <h2 className="font-semibold text-gray-900 mb-4">Number of questions</h2>
-            <div className="flex gap-3">
-              {QUESTION_COUNTS.map(n => (
-                <button key={n} type="button" onClick={() => setNumQuestions(n)}
-                  className={`flex-1 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${
-                    numQuestions === n
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                      : "border-gray-200 text-gray-700 hover:border-gray-300"
-                  }`}>
+          <section className={cardClass}>
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Number of questions</h2>
+            <div className="grid grid-cols-3 gap-3">
+              {QUESTION_COUNTS.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setNumQuestions(n)}
+                  aria-pressed={numQuestions === n}
+                  className={`${optionClass(numQuestions === n)} py-3 font-semibold text-sm ${
+                    numQuestions === n ? "text-blue-700" : "text-gray-700"
+                  }`}
+                >
                   {n} questions
-                  <div className="text-xs font-normal text-gray-400 mt-0.5">
-                    ~{n * 3} min
-                  </div>
+                  <div className="text-xs font-normal text-gray-400 mt-0.5">about {n * 3} min</div>
                 </button>
               ))}
             </div>
-          </div>
+          </section>
 
           {error && (
-            <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-xl px-4 py-3">
-              {error}
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <p>{error}</p>
             </div>
           )}
 
-          <button type="submit" disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white
-                       font-semibold py-3.5 rounded-xl transition-colors text-sm">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-colors text-sm"
+          >
             {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-                Generating questions…
-              </span>
-            ) : "Start interview →"}
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating questions...
+              </>
+            ) : (
+              "Start interview"
+            )}
           </button>
 
           <div className="text-center">
-            <Link href="/interview/history" className="text-sm text-indigo-600 hover:text-indigo-700">
-              View past sessions →
+            <Link
+              href="/interview/history"
+              className="inline-flex items-center gap-0.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              View past sessions <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
         </form>
-      </div>
+      </main>
+
       <MobileBottomNav />
     </div>
   );
 }
 
 export default function InterviewSetupPage() {
-  return <ProtectedRoute><SetupContent /></ProtectedRoute>;
+  return (
+    <ProtectedRoute>
+      <SetupContent />
+    </ProtectedRoute>
+  );
 }
