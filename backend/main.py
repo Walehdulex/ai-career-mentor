@@ -1390,11 +1390,10 @@ async def get_current_user(current_user_id: str = Depends(get_current_user_id), 
     try:
         user = db.query(User).filter(User.id == int(current_user_id)).first()
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
-            )
-        
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+
+        profile = db.query(UserProfile).filter(UserProfile.user_id == user.id).first()
+
         return {
             "id": user.id,
             "username": user.username,
@@ -1406,9 +1405,14 @@ async def get_current_user(current_user_id: str = Depends(get_current_user_id), 
             "resume_analyses_count": user.resume_analyses_count,
             "cover_letters_count": user.cover_letters_count,
             "optimizations_count": user.optimizations_count,
-            "chat_messages_count": user.chat_messages_count
+            "chat_messages_count": user.chat_messages_count,
+            # career profile fields
+            "current_role": getattr(profile, "current_title", None),
+            "industry": getattr(profile, "industry", None),
+            "years_of_experience": getattr(profile, "years_of_experience", None),
+            "career_goals": getattr(profile, "career_goals", None),
+            "location": getattr(profile, "location", None),
         }
-        
     except HTTPException:
         raise
     except Exception as e:
@@ -1457,32 +1461,37 @@ async def get_user_profile(
             detail=f"Error getting profile: {str(e)}"
         )
 
+FIELD_MAP = {"current_role": "current_title"}
+
 @app.put("/api/profile")
 async def update_user_profile(
     profile_data: dict,
-    current_user_id: str = Depends(get_current_user_id), 
+    current_user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
     """Update user profile information"""
     try:
         user_id = int(current_user_id)
         profile = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
-        
+
         if not profile:
             profile = UserProfile(user_id=user_id)
             db.add(profile)
-        
-        # Update only fields that exist in the model
+
         for field, value in profile_data.items():
+            field = FIELD_MAP.get(field, field)
             if hasattr(profile, field):
                 setattr(profile, field, value)
-        
+            else:
+                print(f"⚠️ UserProfile has no field '{field}', skipped")
+
         db.commit()
         db.refresh(profile)
-        
+
         return {"message": "Profile updated successfully"}
-        
+
     except Exception as e:
+        db.rollback()
         print(f"Error updating profile: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1510,72 +1519,7 @@ async def patch_auth_user_profile(
     data_dict = profile_data.model_dump(exclude_unset=True)
     return await update_user_profile(data_dict, current_user_id, db)
     
-# @app.post("/api/jobs/fetch")
-# async def fetch_jobs_from_apis(
-#     query: str,
-#     location: str = "United Kingdom",
-#     max_jobs: int = 50,
-#     current_user_id: int = Depends(get_current_user_id),
-#     db: Session = Depends(get_db)
-# ):
-#     """Fetch jobs from external APIs and store in database"""
-    
-#     # Fetch jobs from all sources
-#     jobs_data = job_api_service.fetch_and_store_jobs(query, location, max_jobs)
-    
-#     added_count = 0
-#     updated_count = 0
-    
-#     for job_data in jobs_data:
-#         # Check if job already exists
-#         existing = db.query(JobPosting).filter(
-#             JobPosting.external_id == job_data['external_id']
-#         ).first()
-        
-#         if existing:
-#             # Update existing job
-#             for key, value in job_data.items():
-#                 setattr(existing, key, value)
-#             existing.updated_at = datetime.utcnow()
-#             updated_count += 1
-#         else:
-#             # Create new job posting
-#             # Extract skills from description
-#             skills = job_api_service.extract_skills_from_description(
-#                 job_data.get('description', '')
-#             )
-            
-#             job = JobPosting(
-#                 title=job_data['title'],
-#                 company_name=job_data['company_name'],
-#                 company_logo_url=job_data.get('company_logo_url'),
-#                 location=job_data['location'],
-#                 remote_type=job_data['remote_type'],
-#                 description=job_data['description'],
-#                 requirements=job_data.get('requirements', ''),
-#                 salary_min=job_data.get('salary_min'),
-#                 salary_max=job_data.get('salary_max'),
-#                 salary_currency=job_data.get('salary_currency', 'GBP'),
-#                 experience_level=job_data.get('experience_level', 'Mid'),
-#                 employment_type=job_data.get('employment_type', 'full-time'),
-#                 required_skills=skills,
-#                 external_id=job_data['external_id'],
-#                 source=job_data['source'],
-#                 apply_url=job_data.get('apply_url'),
-#                 posted_date=job_data.get('posted_date') or datetime.utcnow(),
-#                 is_active=True
-#             )
-#             db.add(job)
-#             added_count += 1
-    
-#     db.commit()
-    
-#     return {
-#         "status": "success",
-#         "jobs_added": added_count,
-#         "jobs_updated": updated_count,
-#         "total_fetched": len(jobs_data)
-#     }
+
 
 @app.post("/api/jobs/fetch")
 def fetch_jobs_from_apis(

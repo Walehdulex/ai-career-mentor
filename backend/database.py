@@ -81,6 +81,8 @@ class UserProfile(Base):
     # Professional Information
     current_title = Column(String)
     experience_level = Column(String)  # junior, mid, senior, lead, executive
+    years_of_experience = Column(Integer, nullable=True)  
+    career_goals = Column(Text, nullable=True)            
     industry = Column(String)
     location = Column(String)
     salary_range = Column(String)
